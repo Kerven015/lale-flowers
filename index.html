@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="tk" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lale gülleri — Gül dükany</title>
+    <meta name="description" content="Aşgabatdaky iň owadan gül dükany. Täze güller, buketler we sowgatlar." />
+    <meta name="theme-color" content="#e01b24" />
+    <link rel="icon" href="/images/lale%20gulleri.jpg" type="image/jpeg" />
+    <link rel="manifest" href="/manifest.json" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('lale_theme');
+          if (t === 'dark' || t === 'light') {
+            document.documentElement.setAttribute('data-theme', t);
+            document.documentElement.style.colorScheme = t;
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

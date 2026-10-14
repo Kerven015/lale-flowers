@@ -1,0 +1,283 @@
+// Admin panel API. Everything except /login needs the admin session cookie.
+import { query, transaction } from '../db.js'
+import { HttpError, badRequest, sendJson } from '../http.js'
+import { PRODUCT_COLUMNS, checkProductForm, editedProductFields, newProductFields, toProduct } from '../products.js'
+import { endOtherSessions, endSession, hashPassword, limit, randomPassword, requireAdmin, startSession, verifyDummy, verifyPassword } from '../security.js'
+import { commitPhotos, preparePhotos, removePhotos } from '../uploads.js'
+import { itemsFor } from './shop.js'
+import { json } from './common.js'
+
+const ADMIN_HOURS = 12
+const STATUSES = ['new', 'confirmed', 'preparing', 'delivering', 'done', 'cancelled']
+const STATUS_GROUPS = {
+  new: ['new'],
+  active: ['confirmed', 'preparing', 'delivering'],
+  done: ['done'],
+  cancelled: ['cancelled'],
+  all: STATUSES,
+}
+const PHOTO_BODY_LIMIT = 30 * 1024 * 1024 // 8 photos as data URLs
+
+const idParam = (ctx) => {
+  const id = Number(ctx.params.id)
+  if (!Number.isInteger(id) || id < 1 || id > 2147483647) throw new HttpError(404, 'not_found')
+  return id
+}
+
+function adminOrder(o, items) {
+  return {
+    id: o.id,
+    code: o.code,
+    status: o.status,
+    createdAt: o.created_at,
+    updatedAt: o.updated_at,
+    customer: { first: o.first_name, last: o.last_name, phone: o.phone, email: o.email, city: o.city, address: o.address },
+    registered: !!o.customer_id,
+    notes: o.notes,
+    adminNote: o.admin_note,
+    deliveryType: o.delivery_type,
+    payment: o.payment,
+    lang: o.lang,
+    subtotal: o.subtotal,
+    deliveryFee: o.delivery_fee,
+    total: o.total,
+    items: (items || []).map((i) => ({ productId: i.product_id, names: i.names, price: i.price, qty: i.qty })),
+  }
+}
+
+async function liveProduct(db, id) {
+  const { rows } = await db.query(`SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, [id])
+  if (!rows[0]) throw new HttpError(404, 'not_found')
+  return rows[0]
+}
+
+// Writes the new photos, then runs the database change; if that fails the
+// new files are removed again.
+async function withPhotos(body, fn) {
+  const photos = preparePhotos(body.images ?? [])
+  if (photos.error) throw badRequest({ image: photos.error })
+  await commitPhotos(photos.pending)
+  try {
+    return await fn(photos.urls)
+  } catch (err) {
+    await removePhotos(photos.pending.map((p) => `/uploads/${p.name}`))
+    throw err
+  }
+}
+
+export function register(router) {
+  // ---- login -------------------------------------------------------------------
+  router.post('/api/admin/login', json(), limit('admin-login', 10, 15, (ctx) => String(ctx.body?.username || '').trim().toLowerCase()), async (ctx) => {
+    const username = String(ctx.body.username || '').trim().slice(0, 100)
+    const password = typeof ctx.body.password === 'string' ? ctx.body.password.slice(0, 200) : ''
+    const { rows } = await query('SELECT id, username, password_hash FROM admins WHERE lower(username) = lower($1)', [username])
+    const ok = rows[0] ? await verifyPassword(password, rows[0].password_hash) : await verifyDummy(password)
+    if (!ok) throw new HttpError(401, 'invalid_credentials')
+    await startSession(ctx.res, 'admin', rows[0].id, { hours: ADMIN_HOURS, remember: false })
+    sendJson(ctx.res, 200, { admin: { username: rows[0].username } })
+  })
+
+  router.post('/api/admin/logout', async (ctx) => {
+    await endSession(ctx.req, ctx.res, 'admin')
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // not logged in is a normal answer here (the panel shows the login form)
+  router.get('/api/admin/me', async (ctx) => {
+    try { await requireAdmin(ctx) } catch { return sendJson(ctx.res, 200, { admin: null }) }
+    const { rows } = await query('SELECT username FROM admins WHERE id = $1', [ctx.adminId])
+    sendJson(ctx.res, 200, { admin: rows[0] || null })
+  })
+
+  router.post('/api/admin/password', json(), requireAdmin, limit('admin-password', 10, 15), async (ctx) => {
+    const current = typeof ctx.body.current === 'string' ? ctx.body.current : ''
+    const next = typeof ctx.body.next === 'string' ? ctx.body.next : ''
+    if (next.length < 8 || next.length > 200) throw badRequest({ next: 'too_short' })
+    const { rows } = await query('SELECT password_hash FROM admins WHERE id = $1', [ctx.adminId])
+    if (!rows[0] || !(await verifyPassword(current, rows[0].password_hash))) throw new HttpError(401, 'invalid_credentials')
+    await query('UPDATE admins SET password_hash = $2 WHERE id = $1', [ctx.adminId, await hashPassword(next)])
+    await endOtherSessions(ctx.req, 'admin', ctx.adminId) // log out other computers / phones
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // Numbers for the badges (polled every few seconds by the admin panel).
+  router.get('/api/admin/summary', requireAdmin, async (ctx) => {
+    const { rows } = await query(`SELECT
+      (SELECT count(*)::int FROM orders WHERE status = 'new') AS new_orders,
+      (SELECT count(*)::int FROM orders WHERE status IN ('confirmed','preparing','delivering')) AS active_orders,
+      (SELECT count(*)::int FROM messages WHERE read_at IS NULL) AS unread_messages,
+      (SELECT coalesce(max(id), 0)::int FROM orders) AS last_order_id`)
+    const r = rows[0]
+    sendJson(ctx.res, 200, { newOrders: r.new_orders, activeOrders: r.active_orders, unreadMessages: r.unread_messages, lastOrderId: r.last_order_id })
+  })
+
+  // ---- products ------------------------------------------------------------------
+  router.post('/api/admin/products', requireAdmin, json(PHOTO_BODY_LIMIT), async (ctx) => {
+    const form = checkProductForm(ctx.body)
+    if (form.errors) throw badRequest(form.errors)
+    const product = await withPhotos(ctx.body, async (urls) => {
+      if (!urls.length) throw badRequest({ image: 'image' })
+      const f = newProductFields(form.data)
+      const { rows } = await query(
+        `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, is_new, in_stock, tones, images, i18n, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, (SELECT coalesce(max(sort_order), 0) + 1 FROM products))
+         RETURNING ${PRODUCT_COLUMNS}`,
+        [f.slug, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.is_new, f.in_stock,
+          JSON.stringify(f.tones), JSON.stringify(urls), JSON.stringify(f.i18n)],
+      )
+      await query("UPDATE products SET slug = slug || '-' || id WHERE id = $1", [rows[0].id])
+      return toProduct({ ...rows[0], slug: `${rows[0].slug}-${rows[0].id}` })
+    })
+    sendJson(ctx.res, 201, { product })
+  })
+
+  router.put('/api/admin/products/:id', requireAdmin, json(PHOTO_BODY_LIMIT), async (ctx) => {
+    const id = idParam(ctx)
+    const form = checkProductForm(ctx.body)
+    if (form.errors) throw badRequest(form.errors)
+    let removed = []
+    const product = await withPhotos(ctx.body, (urls) => transaction(async (db) => {
+      const row = await liveProduct(db, id)
+      const f = editedProductFields(row, form.data)
+      removed = (row.images || []).filter((u) => !urls.includes(u))
+      const { rows } = await db.query(
+        `UPDATE products SET cat = $2, custom_type = $3, occasions = $4, price = $5, old_price = $6, in_stock = $7,
+           i18n = $8, images = $9, updated_at = now()
+         WHERE id = $1 RETURNING ${PRODUCT_COLUMNS}`,
+        [id, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.in_stock,
+          JSON.stringify(f.i18n), JSON.stringify(urls)],
+      )
+      return toProduct(rows[0])
+    }))
+    await removePhotos(removed)
+    sendJson(ctx.res, 200, { product })
+  })
+
+  // Delete one or several products: { ids: [1, 2, 3] }
+  router.post('/api/admin/products/delete', requireAdmin, json(), async (ctx) => {
+    const ids = Array.isArray(ctx.body.ids) ? ctx.body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 500) : []
+    if (!ids.length) throw badRequest({ ids: 'required' })
+    const { rows } = await query(
+      `UPDATE products SET deleted_at = now(), updated_at = now() WHERE id = ANY($1::int[]) AND deleted_at IS NULL RETURNING id, images`,
+      [ids],
+    )
+    // photos of deleted products are not needed any more
+    await removePhotos(rows.flatMap((r) => r.images || []))
+    await query(`UPDATE products SET images = '[]' WHERE id = ANY($1::int[])`, [rows.map((r) => r.id)])
+    sendJson(ctx.res, 200, { deleted: rows.map((r) => r.id) })
+  })
+
+  // ---- orders ----------------------------------------------------------------------
+  router.get('/api/admin/orders', requireAdmin, async (ctx) => {
+    const group = STATUS_GROUPS[ctx.url.searchParams.get('status')] || STATUS_GROUPS.all
+    const q = String(ctx.url.searchParams.get('q') || '').trim().slice(0, 100)
+    const limitN = Math.min(100, Math.max(1, Number(ctx.url.searchParams.get('limit')) || 50))
+    const offset = Math.min(1_000_000, Math.max(0, Math.floor(Number(ctx.url.searchParams.get('offset')) || 0)))
+    const params = [group, limitN, offset]
+    let where = 'status = ANY($1::text[])'
+    if (q) {
+      params.push(`%${q.replace(/[\\%_]/g, '\\$&')}%`)
+      where += ` AND (code ILIKE $4 OR phone ILIKE $4 OR first_name ILIKE $4 OR last_name ILIKE $4 OR email ILIKE $4)`
+    }
+    const { rows } = await query(
+      `SELECT *, count(*) OVER ()::int AS total_count FROM orders WHERE ${where}
+       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+      params,
+    )
+    const items = await itemsFor(rows.map((r) => r.id))
+    sendJson(ctx.res, 200, { orders: rows.map((o) => adminOrder(o, items.get(o.id))), total: rows[0]?.total_count || 0 })
+  })
+
+  router.patch('/api/admin/orders/:id', requireAdmin, json(), async (ctx) => {
+    const id = idParam(ctx)
+    const sets = []
+    const params = [id]
+    if (ctx.body.status !== undefined) {
+      if (!STATUSES.includes(ctx.body.status)) throw badRequest({ status: 'invalid' })
+      params.push(ctx.body.status); sets.push(`status = $${params.length}`)
+    }
+    if (ctx.body.adminNote !== undefined) {
+      if (typeof ctx.body.adminNote !== 'string') throw badRequest({ adminNote: 'invalid' })
+      params.push(ctx.body.adminNote.slice(0, 2000)); sets.push(`admin_note = $${params.length}`)
+    }
+    if (!sets.length) throw badRequest({ status: 'required' })
+    const { rows } = await query(`UPDATE orders SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, params)
+    if (!rows[0]) throw new HttpError(404, 'not_found')
+    const items = await itemsFor([id])
+    sendJson(ctx.res, 200, { order: adminOrder(rows[0], items.get(id)) })
+  })
+
+  // ---- contact messages ---------------------------------------------------------------
+  router.get('/api/admin/messages', requireAdmin, async (ctx) => {
+    const { rows } = await query('SELECT * FROM messages ORDER BY created_at DESC LIMIT 200')
+    sendJson(ctx.res, 200, {
+      messages: rows.map((m) => ({ id: m.id, name: m.name, email: m.email, phone: m.phone, message: m.message, read: !!m.read_at, createdAt: m.created_at })),
+    })
+  })
+
+  router.patch('/api/admin/messages/:id', requireAdmin, json(), async (ctx) => {
+    const id = idParam(ctx)
+    const { rowCount } = await query(
+      `UPDATE messages SET read_at = CASE WHEN $2 THEN coalesce(read_at, now()) ELSE NULL END WHERE id = $1`,
+      [id, ctx.body.read !== false],
+    )
+    if (!rowCount) throw new HttpError(404, 'not_found')
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  router.delete('/api/admin/messages/:id', requireAdmin, async (ctx) => {
+    await query('DELETE FROM messages WHERE id = $1', [idParam(ctx)])
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // ---- customers ------------------------------------------------------------------------
+  router.get('/api/admin/customers', requireAdmin, async (ctx) => {
+    const q = String(ctx.url.searchParams.get('q') || '').trim().slice(0, 100)
+    const params = []
+    let where = ''
+    if (q) {
+      params.push(`%${q.replace(/[\\%_]/g, '\\$&')}%`)
+      where = 'WHERE c.email ILIKE $1 OR c.first_name ILIKE $1 OR c.last_name ILIKE $1 OR c.phone ILIKE $1'
+    }
+    const { rows } = await query(
+      `SELECT c.id, c.email, c.first_name, c.last_name, c.phone, c.created_at,
+              (SELECT count(*)::int FROM orders o WHERE o.customer_id = c.id) AS orders
+       FROM customers c ${where} ORDER BY c.created_at DESC LIMIT 200`,
+      params,
+    )
+    sendJson(ctx.res, 200, {
+      customers: rows.map((c) => ({ id: c.id, email: c.email, first: c.first_name, last: c.last_name, phone: c.phone, orders: c.orders, createdAt: c.created_at })),
+    })
+  })
+
+  // A customer forgot their password: make a new temporary one. The admin
+  // tells it to the customer (by phone); the customer can change it in Profile.
+  router.post('/api/admin/customers/:id/password', requireAdmin, async (ctx) => {
+    const id = idParam(ctx)
+    const password = randomPassword(10)
+    const { rowCount } = await query('UPDATE customers SET password_hash = $2 WHERE id = $1', [id, await hashPassword(password)])
+    if (!rowCount) throw new HttpError(404, 'not_found')
+    await query(`DELETE FROM sessions WHERE kind = 'customer' AND customer_id = $1`, [id])
+    sendJson(ctx.res, 200, { password })
+  })
+
+  // Remove a customer account. Their logins end at once (sessions are deleted
+  // with the account). Their past orders stay in Orders — with the name, phone
+  // and address they typed — so the shop's history is not lost.
+  router.delete('/api/admin/customers/:id', requireAdmin, async (ctx) => {
+    const { rowCount } = await query('DELETE FROM customers WHERE id = $1', [idParam(ctx)])
+    if (!rowCount) throw new HttpError(404, 'not_found')
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // ---- newsletter -------------------------------------------------------------------------
+  router.get('/api/admin/subscribers', requireAdmin, async (ctx) => {
+    const { rows } = await query('SELECT id, email, created_at FROM subscribers ORDER BY created_at DESC')
+    sendJson(ctx.res, 200, { subscribers: rows.map((s) => ({ id: s.id, email: s.email, createdAt: s.created_at })) })
+  })
+
+  router.delete('/api/admin/subscribers/:id', requireAdmin, async (ctx) => {
+    await query('DELETE FROM subscribers WHERE id = $1', [idParam(ctx)])
+    sendJson(ctx.res, 200, { ok: true })
+  })
+}

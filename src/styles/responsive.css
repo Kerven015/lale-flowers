@@ -1,0 +1,181 @@
+/* ============================================================
+   LALE GÜLLERI — responsive.css
+   ============================================================ */
+
+/* ---------- Большие ноутбуки ---------- */
+@media (max-width: 1200px) {
+  .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .footer-top { grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 26px; }
+}
+
+/* ---------- Планшеты ---------- */
+@media (max-width: 1024px) {
+  :root { --header-h: 70px; }
+
+  .main-nav {
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 18px 20px 26px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-140%);
+    opacity: 0;
+    visibility: hidden;
+    transition: transform .45s cubic-bezier(.22, .61, .36, 1),
+                opacity .35s ease,
+                visibility .35s ease;
+    max-height: calc(100vh - var(--header-h));
+    overflow-y: auto;
+    z-index: 190;
+  }
+  .main-nav.open {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+  }
+  .main-nav a {
+    padding: 15px 14px;
+    border-radius: 14px;
+    font-size: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .main-nav a:last-child { border-bottom: none; }
+  .main-nav a::after { display: none; }
+  .main-nav a.active { background: rgba(224, 27, 36, .08); }
+
+  .burger { display: flex; }
+
+  .hero-inner { grid-template-columns: 1fr; }
+  .hero-visual { max-width: 520px; margin-inline: auto; width: 100%; }
+  .hero { min-height: auto; }
+  .hero-text { text-align: center; }
+  .hero-sub { margin-inline: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-stats { justify-content: center; }
+
+  .trust { grid-template-columns: repeat(2, 1fr); margin-top: 26px; }
+
+  .catalog-layout { grid-template-columns: 1fr; }
+  .filters {
+    position: static;
+    max-height: none;
+    display: none;
+  }
+  .filters.open { display: block; animation: fadeUp .4s ease; }
+
+  .product-view { grid-template-columns: 1fr; }
+  .cart-layout { grid-template-columns: 1fr; }
+  .summary { position: static; }
+
+  .promo { grid-template-columns: 1fr; text-align: center; }
+  .promo .promo-art { justify-self: center; }
+
+  .footer-top { grid-template-columns: 1fr 1fr; gap: 30px; }
+
+  .newsletter { grid-template-columns: 1fr; }
+}
+
+/* ---------- Мобильные ---------- */
+@media (max-width: 768px) {
+  body { font-size: 15px; }
+
+  .container { width: min(100% - 28px, var(--maxw)); }
+
+  .brand-name { font-size: .92rem; }
+  .brand-name small { display: none; }
+  .brand-logo { width: 42px; height: 42px; border-radius: 12px; }
+
+  .header-actions { gap: 2px; }
+  .icon-btn { width: 38px; height: 38px; font-size: .95rem; }
+  .lang-switch button { padding: 5px 8px; font-size: .7rem; }
+
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .product-body { padding: 12px 12px 16px; }
+  .product-name { font-size: .9rem; }
+  .price .now { font-size: 1rem; }
+
+  .quick { opacity: 1; transform: none; position: static; padding: 0 12px 12px; }
+  .quick .btn { font-size: .76rem; padding: 9px 8px; }
+
+  .cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .cat-card { padding: 20px 16px; }
+  .cat-card .ci { width: 50px; height: 50px; font-size: 1.35rem; }
+
+  .trust { grid-template-columns: 1fr; padding: 20px; }
+  .trust-item .ti { width: 40px; height: 40px; flex-basis: 40px; }
+
+  .section-head { margin-bottom: 26px; }
+  .section-head h2 { font-size: 1.5rem; }
+
+  .cart-row {
+    grid-template-columns: 76px 1fr auto;
+    grid-template-areas:
+      "img info remove"
+      "img qty price";
+    gap: 12px;
+    row-gap: 8px;
+    padding: 14px;
+  }
+  .cart-row img { grid-area: img; width: 76px; height: 76px; }
+  .cart-row .cr-info { grid-area: info; }
+  .cart-row .qty { grid-area: qty; }
+  .cart-row .cr-price { grid-area: price; text-align: right; }
+  .cart-row .remove { grid-area: remove; width: 34px; height: 34px; }
+
+  .form-grid { grid-template-columns: 1fr; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+
+  .step { grid-template-columns: 1fr; text-align: center; gap: 14px; }
+  .step .num { margin-inline: auto; }
+  .step:hover { transform: translateY(-4px); }
+
+  .footer-top { grid-template-columns: 1fr; gap: 26px; padding: 44px 0 30px; }
+  .footer-bottom { flex-direction: column; text-align: center; }
+
+  .toast-wrap { left: 14px; right: 14px; bottom: 14px; }
+  .toast { max-width: none; }
+
+  .hero-float { left: 12px; bottom: 12px; padding: 10px 14px; }
+  .hero-float .dot { width: 34px; height: 34px; font-size: .95rem; }
+
+  .newsletter input { min-width: 0; width: 100%; }
+  .newsletter form { width: 100%; }
+  .newsletter form .btn { width: 100%; }
+
+  .gallery-thumbs { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  .modal-box { padding: 24px; }
+}
+
+/* ---------- Маленькие телефоны ---------- */
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns: 1fr; }
+  .cat-grid { grid-template-columns: 1fr; }
+  .hero-stats { gap: 22px; }
+  .hero-stats strong { font-size: 1.35rem; }
+  .btn { padding: 12px 20px; font-size: .88rem; }
+  .btn-lg { padding: 14px 24px; font-size: .92rem; }
+  .icon-btn { width: 36px; height: 36px; }
+  .lang-switch { padding: 2px; }
+  .lang-switch button { padding: 4px 7px; font-size: .66rem; }
+  .tabs button { padding: 11px 13px; font-size: .84rem; }
+  .pv-price .now { font-size: 1.5rem; }
+}
+
+/* ---------- Ландшафт телефона ---------- */
+@media (max-height: 480px) and (orientation: landscape) {
+  .hero { min-height: auto; padding: 30px 0; }
+  .hero-visual { max-width: 320px; }
+}
+
+/* ---------- Печать ---------- */
+@media print {
+  .site-header, .site-footer, .toast-wrap, .quick, .fav-btn { display: none !important; }
+  body { background: #fff; color: #000; }
+}

@@ -1,0 +1,11 @@
+# HTTPS in front of the shop. DOMAIN comes from the .env file, e.g.
+#   DOMAIN=lalegulleri.tm, www.lalegulleri.tm
+{$DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 32MB
+	}
+	reverse_proxy app:3000 {
+		header_up X-Real-IP {remote_host}
+	}
+}

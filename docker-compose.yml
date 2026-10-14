@@ -1,0 +1,66 @@
+# Lale Gülleri with Docker: database + shop (website and server).
+#   Start:   docker compose up -d --build
+#   Stop:    docker compose down          (your data is kept)
+# On the real server with HTTPS:  docker compose --profile https up -d --build
+# Settings come from the .env file next to this one (see .env.docker.example).
+name: lale-gulleri
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lale
+      POSTGRES_DB: lale
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the .env file}
+    volumes:
+      - db-data:/var/lib/postgresql/data   # the database (kept when containers are removed)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lale -d lale"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://lale:${POSTGRES_PASSWORD}@db:5432/lale
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    ports:
+      # 127.0.0.1 = only this computer can open it (safe default)
+      - "${SITE_BIND:-127.0.0.1}:${SITE_PORT:-8080}:3000"
+    volumes:
+      - uploads:/app/server/uploads        # product photos (kept)
+
+  # HTTPS for the real site: Caddy gets a free certificate automatically.
+  # Only starts with:  docker compose --profile https up -d
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:

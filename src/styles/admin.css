@@ -1,0 +1,314 @@
+/* ============================================================
+   Admin panel: form + product catalog (same grid as the shop)
+   Only existing colors: var(--red), var(--border), var(--surface),
+   var(--glass), var(--text), var(--muted), var(--shadow*).
+   ============================================================ */
+.adm-form-wrap { max-width: 780px; margin: 0 auto 56px; }
+.adm-catalog { scroll-margin-top: 140px; }
+.adm-catalog-head h2 { margin: 0; }
+
+/* ---------- Search by name ---------- */
+.adm-search { position: relative; margin: 0 0 18px; }
+.adm-search > .ico {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.adm-search .field { padding-left: 46px; padding-right: 44px; border-radius: 999px; }
+.adm-search .field::-webkit-search-cancel-button { display: none; }
+.adm-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.adm-search-clear:hover { color: var(--red); border-color: var(--red); }
+
+.adm-select-toggle { margin-left: auto; display: flex; gap: 8px; }
+
+/* ---------- Cards ---------- */
+.adm-card { transition: box-shadow .25s var(--nav-ease), transform .25s var(--nav-ease); }
+.adm-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.adm-act {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text);
+  cursor: pointer;
+  transition: color .2s var(--nav-ease), border-color .2s var(--nav-ease), transform .2s var(--nav-ease), background-color .2s var(--nav-ease);
+}
+.adm-act:hover { transform: scale(1.08); color: var(--red); border-color: var(--red); }
+.adm-act:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.adm-del:hover { background: var(--red); color: #fff; }
+
+/* selection mode: the card is a big checkbox */
+.adm-card.is-selecting { cursor: pointer; user-select: none; }
+.adm-card.is-selecting:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+.adm-card.is-selecting .product-media img { transition: transform .3s var(--nav-ease); }
+.adm-card.is-selected { box-shadow: 0 0 0 2px var(--red), var(--shadow); }
+.adm-card.is-selected .product-media img { transform: scale(.94); }
+.adm-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  z-index: 2;
+  transition: background-color .2s var(--nav-ease), border-color .2s var(--nav-ease), transform .2s var(--nav-ease);
+}
+.adm-check.on { background: var(--red); border-color: var(--red); transform: scale(1.06); }
+
+/* fade-out when deleted */
+@keyframes admCardOut {
+  to { opacity: 0; transform: scale(.92); }
+}
+.product-card.adm-card.is-removing {
+  animation: admCardOut .3s var(--nav-ease) forwards;
+  pointer-events: none;
+}
+
+/* ---------- Selection bar ---------- */
+.adm-selectbar {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1001;
+  width: min(calc(100% - 32px), 560px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 12px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, 140%);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform .3s var(--nav-ease), opacity .3s var(--nav-ease), visibility 0s linear .3s;
+}
+.adm-selectbar.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+  transition: transform .3s var(--nav-ease), opacity .3s var(--nav-ease);
+}
+.adm-selectbar-count { font-weight: 800; white-space: nowrap; }
+.adm-selectbar-actions { display: flex; gap: 8px; }
+.adm-selectbar .btn { white-space: nowrap; }
+
+/* ---------- Confirmation dialog ---------- */
+.modal.adm-confirm { z-index: 1200; background: rgba(0, 0, 0, .45); }
+.adm-confirm .modal-box {
+  text-align: center;
+  transform: translateY(12px) scale(.98);
+  transition: transform .25s var(--nav-ease);
+}
+.adm-confirm.show .modal-box { transform: none; }
+.adm-confirm-photos { display: flex; justify-content: center; margin-bottom: 18px; }
+.adm-confirm-photos img,
+.adm-confirm-more {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow);
+  background: var(--bg-alt);
+}
+.adm-confirm-photos.many img,
+.adm-confirm-photos.many .adm-confirm-more { width: 68px; height: 68px; border-radius: 14px; margin-left: -14px; }
+.adm-confirm-photos.many > :first-child { margin-left: 0; }
+.adm-confirm-more { display: grid; place-items: center; font-weight: 800; color: var(--text); }
+.adm-confirm h3 { margin: 0 0 6px; }
+.adm-confirm-name { font-weight: 700; margin: 0 0 8px; }
+.adm-confirm .muted { margin: 0 0 22px; line-height: 1.5; }
+.adm-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adm-confirm-actions .btn { justify-content: center; gap: 8px; }
+
+@media (max-width: 768px) {
+  .adm-form-wrap { margin-bottom: 40px; }
+  .adm-act { width: 36px; height: 36px; }
+  .adm-actions { top: 8px; right: 8px; gap: 6px; }
+  .adm-check { top: 8px; right: 8px; }
+  .adm-selectbar {
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    border-radius: 20px;
+    padding: 10px 10px 10px 16px;
+  }
+  .adm-selectbar-count { font-size: .85rem; }
+  .adm-selectbar-actions { gap: 6px; }
+  .adm-selectbar .btn {
+    font-size: .82rem !important; /* mobile.css makes every button 16px */
+    padding: 9px 12px;
+    min-height: 0;
+    gap: 6px;
+  }
+  .adm-select-toggle { margin-left: 0; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm-act, .adm-check, .adm-selectbar, .adm-confirm .modal-box, .adm-card.is-selecting .product-media img { transition: none; }
+  .product-card.adm-card.is-removing { animation-duration: .01s; }
+}
+
+/* Small phones: keep the selection bar on one line in every language */
+@media (max-width: 380px) {
+  .adm-selectbar { gap: 8px; padding: 8px 8px 8px 12px; }
+  .adm-selectbar .btn { padding: 8px 10px; }
+  .adm-selectbar .btn .ico { display: none; }
+}
+
+/* ============================================================
+   Admin tabs, orders, messages, customers, newsletter
+   ============================================================ */
+.adm-section { padding-top: 32px; }
+.adm-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+.adm-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-tab {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-weight: 700; font-size: .88rem; transition: border-color .2s var(--nav-ease), background-color .2s var(--nav-ease), color .2s var(--nav-ease);
+}
+.adm-tab .ico { color: var(--red); }
+.adm-tab:hover { border-color: var(--red); }
+.adm-tab.active { background: var(--red); border-color: var(--red); color: #fff; }
+.adm-tab.active .ico { color: #fff; }
+.adm-count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: var(--red); color: #fff; font-size: .7rem; font-weight: 800; line-height: 1;
+}
+.adm-tab.active .adm-count, .chip.active .adm-count { background: #fff; color: var(--red); }
+.chip .adm-count { margin-left: 6px; }
+.adm-top-actions { display: flex; align-items: center; gap: 10px; }
+.adm-who { font-weight: 700; font-size: .85rem; }
+.adm-sound[aria-pressed="true"] { color: var(--red); }
+
+.adm-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.adm-toolbar .chips { margin: 0; }
+.adm-toolbar .adm-search { flex: 1 1 240px; margin: 0; }
+
+/* one order */
+.adm-order-list, .adm-list { display: grid; gap: 14px; }
+.adm-order, .adm-card-row {
+  padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface); box-shadow: var(--shadow-sm); min-width: 0;
+}
+.adm-order.is-new, .adm-card-row.is-new { border-color: rgba(224, 27, 36, .45); box-shadow: 0 0 0 1px rgba(224, 27, 36, .2), var(--shadow-sm); }
+.adm-order-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.adm-order-head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-order-time { font-size: .8rem; }
+.adm-order-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin-bottom: 12px; }
+.adm-order-name { font-weight: 800; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.adm-tag { padding: 2px 8px; border-radius: 999px; background: var(--bg-alt); border: 1px solid var(--border); font-size: .68rem; font-weight: 700; color: var(--muted); }
+.adm-order-link { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: var(--text); font-size: .9rem; overflow-wrap: anywhere; }
+.adm-order-link .ico { color: var(--red); flex: none; }
+.adm-order-link:hover { color: var(--red); }
+.adm-order-line { font-weight: 700; font-size: .9rem; }
+.adm-order-line + .adm-order-line, .adm-order-address + .adm-order-line { margin-top: 4px; }
+.adm-order-address { margin-top: 4px; font-size: .9rem; line-height: 1.45; overflow-wrap: anywhere; }
+.adm-order-items { margin: 0 0 12px; padding: 10px 0 0; border-top: 1px solid var(--border); }
+.adm-order-items li { display: flex; justify-content: space-between; gap: 14px; padding: 3px 0; font-size: .9rem; }
+.adm-order-items li span:first-child { overflow-wrap: anywhere; }
+.adm-order-items li span:last-child { flex: none; font-weight: 700; }
+.adm-order-total { margin-top: 4px; padding-top: 8px !important; border-top: 1px dashed var(--border); font-weight: 800; }
+.adm-order-total span:last-child { color: var(--red); }
+.adm-order-notes { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--gold); border-radius: 0 10px 10px 0; background: var(--bg-alt); white-space: pre-line; overflow-wrap: anywhere; font-size: .9rem; }
+.adm-order-notes small, .adm-order-note small { display: block; margin-bottom: 4px; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.adm-order-note { display: block; margin-bottom: 12px; }
+.adm-order-note textarea { min-height: 0; resize: vertical; font-size: .9rem; }
+.adm-order-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.adm-order-select { width: auto; min-width: 150px; padding: 9px 12px; }
+.adm-order-cancel:hover { color: var(--red); border-color: var(--red); }
+
+/* messages */
+.adm-msg-contacts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 10px; }
+.adm-msg-text { margin: 0 0 14px; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.6; }
+
+/* customers */
+.adm-customer { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.adm-customer-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-customer-main small { margin-top: 4px; }
+.adm-customer-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.adm-temp-pass { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--red); background: var(--bg-alt); }
+.adm-temp-pass small { flex-basis: 100%; text-align: right; font-weight: 700; }
+.adm-temp-pass code { font-size: 1.1rem; font-weight: 800; letter-spacing: .06em; user-select: all; }
+
+/* newsletter */
+.adm-subs { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.adm-subs li { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.adm-subs li:last-child { border-bottom: 0; }
+.adm-subs li a { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.adm-subs li a:hover { color: var(--red); }
+.adm-subs .muted { font-size: .8rem; white-space: nowrap; }
+.adm-subs .adm-act { width: 34px; height: 34px; flex: none; }
+
+/* product form: in-stock switch */
+.adm-stock { align-items: flex-start; }
+.adm-stock span { display: flex; flex-direction: column; gap: 2px; }
+.adm-stock small { font-size: .78rem; line-height: 1.4; }
+
+@media (max-width: 768px) {
+  /* nowrap: a wrapping column would grow as wide as the tab row */
+  .adm-top { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .adm-tabs, .adm-toolbar .chips { min-width: 0; }
+  .adm-tabs { flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; padding: 0 12px 4px; scrollbar-width: none; }
+  .adm-tabs::-webkit-scrollbar { display: none; }
+  .adm-tab { flex: none; min-height: 40px; padding: 0 14px; font-size: .82rem !important; }
+  .adm-top-actions { justify-content: flex-end; }
+  .adm-order, .adm-card-row { padding: 16px 14px; }
+  .adm-order-grid { grid-template-columns: minmax(0, 1fr); }
+  .adm-order-actions .btn, .adm-order-select { flex: 1 1 auto; }
+  .adm-toolbar .chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; margin: 0 -12px; padding: 0 12px 4px; }
+  .adm-customer-side { align-items: stretch; width: 100%; }
+  .adm-temp-pass { justify-content: flex-start; }
+  .adm-temp-pass small { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-tab { transition: none; }
+}
+
+/* customer card: "new password" + "delete account" side by side */
+.adm-customer-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.adm-cus-delete { color: var(--red); border-color: var(--red); }
+.adm-cus-delete:hover { background: var(--red); color: #fff; }
+@media (max-width: 640px) {
+  .adm-customer-actions { justify-content: stretch; }
+  .adm-customer-actions .btn { flex: 1 1 auto; }
+}

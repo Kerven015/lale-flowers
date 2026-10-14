@@ -1,0 +1,167 @@
+// Public shop API: products, placing and tracking orders, contact form,
+// newsletter.
+import crypto from 'node:crypto'
+import { LANGS, SHOP } from '../config.js'
+import { query, transaction } from '../db.js'
+import { HttpError, badRequest, sendJson } from '../http.js'
+import { PRODUCT_COLUMNS, toProduct } from '../products.js'
+import { limit, optionalCustomer } from '../security.js'
+import { email, oneOf, phone, text } from '../validate.js'
+import { json } from './common.js'
+
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O, 1/I
+const newCode = () => 'LG-' + Array.from({ length: 8 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join('')
+
+export function orderForCustomer(o, items) {
+  return {
+    code: o.code,
+    status: o.status,
+    createdAt: o.created_at,
+    deliveryType: o.delivery_type,
+    payment: o.payment,
+    subtotal: o.subtotal,
+    deliveryFee: o.delivery_fee,
+    total: o.total,
+    items: items.map((i) => ({ productId: i.product_id, names: i.names, price: i.price, qty: i.qty })),
+  }
+}
+
+export async function itemsFor(orderIds) {
+  if (!orderIds.length) return new Map()
+  const { rows } = await query(
+    'SELECT order_id, product_id, names, price, qty FROM order_items WHERE order_id = ANY($1::int[]) ORDER BY id',
+    [orderIds],
+  )
+  const map = new Map(orderIds.map((id) => [id, []]))
+  for (const r of rows) map.get(r.order_id).push(r)
+  return map
+}
+
+export function register(router) {
+  router.get('/api/health', async (ctx) => {
+    await query('SELECT 1')
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  router.get('/api/products', async (ctx) => {
+    const { rows } = await query(`SELECT ${PRODUCT_COLUMNS} FROM products WHERE deleted_at IS NULL ORDER BY sort_order, id`)
+    sendJson(ctx.res, 200, {
+      products: rows.map(toProduct),
+      shop: { freeDeliveryFrom: SHOP.freeDeliveryFrom, deliveryPrice: SHOP.deliveryPrice },
+    })
+  })
+
+  // Place an order. Prices always come from the database, never from the browser.
+  router.post('/api/orders', json(), limit('order', 30, 10), optionalCustomer, async (ctx) => {
+    const b = ctx.body
+    const errors = {}
+    const deliveryType = oneOf(errors, b, 'deliveryType', ['delivery', 'pickup'], 'delivery')
+    const c = b.customer || {}
+    const customer = {
+      first: text(errors, c, 'first', { required: true, max: 80 }),
+      last: text(errors, c, 'last', { required: true, max: 80 }),
+      phone: phone(errors, c, 'phone'),
+      email: email(errors, c, 'email'),
+      city: text(errors, c, 'city', { required: deliveryType === 'delivery', max: 80 }),
+      address: text(errors, c, 'address', { required: deliveryType === 'delivery', max: 300 }),
+      notes: text(errors, c, 'notes', { max: 1000 }),
+    }
+    const payment = oneOf(errors, b, 'payment', ['card', 'cash'], 'cash')
+    const lang = LANGS.includes(b.lang) ? b.lang : 'tm'
+
+    // basket: [{ id, qty }] -> merged by product
+    const qtyById = new Map()
+    if (!Array.isArray(b.items) || !b.items.length || b.items.length > SHOP.maxOrderLines) errors.items = 'invalid'
+    else {
+      for (const it of b.items) {
+        const id = Number(it?.id)
+        const qty = Number(it?.qty)
+        if (!Number.isInteger(id) || id < 1 || id > 2147483647 || !Number.isInteger(qty) || qty < 1 || qty > SHOP.maxQty) { errors.items = 'invalid'; break }
+        qtyById.set(id, Math.min(SHOP.maxQty, (qtyById.get(id) || 0) + qty))
+      }
+    }
+    if (Object.keys(errors).length) throw badRequest(errors)
+
+    const order = await transaction(async (db) => {
+      const ids = [...qtyById.keys()]
+      const { rows: products } = await db.query(
+        'SELECT id, price, in_stock, i18n FROM products WHERE id = ANY($1::int[]) AND deleted_at IS NULL FOR SHARE',
+        [ids],
+      )
+      const byId = new Map(products.map((p) => [p.id, p]))
+      const missing = ids.filter((id) => !byId.has(id))
+      const soldOut = ids.filter((id) => byId.has(id) && !byId.get(id).in_stock)
+      if (missing.length || soldOut.length) throw new HttpError(409, 'unavailable', { productIds: [...missing, ...soldOut] })
+
+      const lines = ids.map((id) => {
+        const p = byId.get(id)
+        return { id, qty: qtyById.get(id), price: p.price, names: Object.fromEntries(LANGS.map((l) => [l, p.i18n?.[l]?.name || p.i18n?.tm?.name || ''])) }
+      })
+      const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0)
+      const deliveryFee = deliveryType === 'pickup' || subtotal >= SHOP.freeDeliveryFrom ? 0 : SHOP.deliveryPrice
+      const total = subtotal + deliveryFee
+
+      let row
+      for (let attempt = 0; !row; attempt++) {
+        try {
+          await db.query('SAVEPOINT code_try')
+          const r = await db.query(
+            `INSERT INTO orders (code, customer_id, first_name, last_name, phone, email, city, address, notes,
+               delivery_type, payment, lang, subtotal, delivery_fee, total)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+             RETURNING id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total`,
+            [newCode(), ctx.customerId || null, customer.first, customer.last, customer.phone, customer.email,
+              customer.city, deliveryType === 'pickup' ? '' : customer.address, customer.notes,
+              deliveryType, payment, lang, subtotal, deliveryFee, total],
+          )
+          row = r.rows[0]
+        } catch (err) {
+          await db.query('ROLLBACK TO SAVEPOINT code_try')
+          if (err.code !== '23505' || attempt > 4) throw err // 23505 = order code already used, try another
+        }
+      }
+      for (const l of lines) {
+        await db.query(
+          'INSERT INTO order_items (order_id, product_id, names, price, qty) VALUES ($1, $2, $3, $4, $5)',
+          [row.id, l.id, JSON.stringify(l.names), l.price, l.qty],
+        )
+      }
+      return orderForCustomer(row, lines.map((l) => ({ product_id: l.id, names: l.names, price: l.price, qty: l.qty })))
+    })
+    sendJson(ctx.res, 201, { order })
+  })
+
+  // Track an order by its code. Shows no names, phone numbers or addresses.
+  router.get('/api/orders/:code', limit('track', 120, 10), async (ctx) => {
+    const code = String(ctx.params.code || '').trim().toUpperCase()
+    if (!/^LG-[A-Z0-9]{4,12}$/.test(code)) throw new HttpError(404, 'not_found')
+    const { rows } = await query(
+      'SELECT id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total FROM orders WHERE code = $1',
+      [code],
+    )
+    if (!rows[0]) throw new HttpError(404, 'not_found')
+    const items = await itemsFor([rows[0].id])
+    sendJson(ctx.res, 200, { order: orderForCustomer(rows[0], items.get(rows[0].id)) })
+  })
+
+  router.post('/api/contact', json(), limit('contact', 20, 10), async (ctx) => {
+    const errors = {}
+    const msg = {
+      name: text(errors, ctx.body, 'name', { required: true, max: 120 }),
+      email: email(errors, ctx.body, 'email'),
+      phone: phone(errors, ctx.body, 'phone', { required: false }),
+      message: text(errors, ctx.body, 'message', { required: true, max: 3000 }),
+    }
+    if (Object.keys(errors).length) throw badRequest(errors)
+    await query('INSERT INTO messages (name, email, phone, message) VALUES ($1, $2, $3, $4)', [msg.name, msg.email, msg.phone, msg.message])
+    sendJson(ctx.res, 201, { ok: true })
+  })
+
+  router.post('/api/newsletter', json(), limit('newsletter', 30, 10), async (ctx) => {
+    const errors = {}
+    const addr = email(errors, ctx.body, 'email')
+    if (Object.keys(errors).length) throw badRequest(errors)
+    await query('INSERT INTO subscribers (email) VALUES ($1) ON CONFLICT DO NOTHING', [addr])
+    sendJson(ctx.res, 201, { ok: true })
+  })
+}

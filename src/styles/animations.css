@@ -1,0 +1,95 @@
+/* ============================================================
+   LALE GÜLLERI — animations.css (упрощённая версия)
+   Секции всегда видимы. Никаких reveal-анимаций.
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(60px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastOut {
+  to { opacity: 0; transform: translateX(60px); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* Все секции ВСЕГДА видны */
+.reveal,
+.reveal-left,
+.reveal-right,
+.reveal-zoom {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Анимация входа страницы */
+main { animation: fadeIn .4s ease both; }
+
+/* Hero-плашка плавает */
+.hero-float { animation: floatY 4s ease-in-out infinite; }
+
+/* Скелетон загрузки */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-alt) 25%, var(--surface) 50%, var(--bg-alt) 75%);
+  background-size: 400px 100%;
+  animation: spin 2s infinite linear;
+}
+
+/* Модальное окно */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 950;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .3s ease, visibility .3s ease;
+}
+.modal.show { opacity: 1; visibility: visible; }
+
+.modal-box {
+  width: min(100%, 440px);
+  padding: 32px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 80px rgba(0,0,0,.25);
+  text-align: center;
+}
+
+.modal-box .m-icon {
+  width: 76px; height: 76px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: #fff;
+  background: linear-gradient(135deg, #2ecc71, #1f8a4c);
+}

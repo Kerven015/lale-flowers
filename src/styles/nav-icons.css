@@ -1,0 +1,110 @@
+/* ============================================================
+   Line icons in the main menu, phone menu, catalog toolbar and
+   phone Filter/Sort sheets. lucide 1.5px strokes, 16-18px,
+   8px from the label, accent color var(--red) (same as the
+   active menu item), subtle scale on hover / active.
+   ============================================================ */
+
+/* ---------- main menu ---------- */
+.mainmenu-list .mm-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.mm-ico {
+  flex: none;
+  color: var(--red);
+  opacity: .82;
+  transform-origin: center;
+  transition: transform .25s var(--nav-ease), opacity .25s var(--nav-ease), color .25s var(--nav-ease);
+}
+.mainmenu-list > li > a:hover .mm-ico,
+.mainmenu-list > li > button:hover .mm-ico,
+.mainmenu-list > li > a:focus-visible .mm-ico,
+.mainmenu-list > li > a.active .mm-ico,
+.has-mega.open > button .mm-ico {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+/* Fitting the row: the Header measures the menu and sets data-fit
+   0 = normal, 1 = tighter spacing, 2 = About/Contacts move to the
+   side menu + footer. Replaces the old fixed-width rules. */
+:root { --mm-pad: 9px; }
+.mainmenu-list > li > a,
+.mainmenu-list > li > button { letter-spacing: .04em; }
+.mainmenu-list > li.mm-secondary { display: block; }
+.mainmenu-list[data-fit="1"] { --mm-pad: 7px; }
+.mainmenu-list[data-fit="1"] > li > a,
+.mainmenu-list[data-fit="1"] > li > button { font-size: .75rem; letter-spacing: .03em; }
+.mainmenu-list[data-fit="2"],
+.mainmenu-list[data-fit="3"] { --mm-pad: 5px; }
+.mainmenu-list[data-fit="2"] > li > a,
+.mainmenu-list[data-fit="2"] > li > button,
+.mainmenu-list[data-fit="3"] > li > a,
+.mainmenu-list[data-fit="3"] > li > button { font-size: .72rem; letter-spacing: .02em; }
+.mainmenu-list[data-fit="4"] { --mm-pad: 4px; }
+.mainmenu-list[data-fit="4"] > li > a,
+.mainmenu-list[data-fit="4"] > li > button { font-size: .7rem; letter-spacing: .01em; }
+.mainmenu-list[data-fit="4"] .mm-text { gap: 6px; }
+.mainmenu-list[data-fit="3"] > li.mm-secondary,
+.mainmenu-list[data-fit="4"] > li.mm-secondary { display: none; }
+
+/* ---------- phone / tablet side menu ---------- */
+.side-nav .mm-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.side-nav .mm-ico { opacity: .9; }
+.side-nav > a:hover .mm-ico,
+.side-nav > a.active .mm-ico,
+.side-acc:hover .mm-ico,
+.side-acc.open .mm-ico { opacity: 1; transform: scale(1.08); }
+.side-acc { justify-content: space-between; }
+
+/* ---------- catalog toolbar ---------- */
+.tb-btn .tb-ico {
+  flex: none;
+  color: var(--red);
+  opacity: .82;
+  margin-right: 1px; /* 7-8px gap from the button's own gap */
+  transition: transform .25s var(--nav-ease), opacity .25s var(--nav-ease);
+}
+.tb-btn:hover .tb-ico,
+.tb-dd.open .tb-ico,
+.tb-dd.is-active .tb-ico { opacity: 1; transform: scale(1.08); }
+/* room for the icons: slightly tighter buttons */
+.tb-filters { gap: 6px; }
+.tb-btn { padding: 0 10px 0 11px; gap: 7px; letter-spacing: .05em; }
+.tb-btn .tb-caret { margin-left: -2px; }
+@media (max-width: 1279px) {
+  .tb-filters { gap: 5px; }
+  .tb-btn { padding: 0 8px 0 9px; gap: 6px; letter-spacing: .03em; }
+  /* Sort shows icon + chosen option; the arrows icon says "sort" and the
+     word stays available to screen readers */
+  .filter-toolbar > .tb-dd .tb-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- phone Filter / Sort sheets ---------- */
+.acc-head .acc-ico {
+  flex: none;
+  color: var(--red);
+  opacity: .82;
+  transition: transform .25s var(--nav-ease), opacity .25s var(--nav-ease);
+}
+.acc.open .acc-ico,
+.acc-head:hover .acc-ico { opacity: 1; transform: scale(1.08); }
+.sheet-title-ico { gap: 8px; }
+.sheet-title-ico .ico { color: var(--red); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-ico, .tb-btn .tb-ico, .acc-head .acc-ico { transition: none; }
+}

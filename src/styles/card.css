@@ -1,0 +1,187 @@
+/* ============================================================
+   Product card: tall photo (3:4, about 75% of the card) and a
+   compact description (about 25%). Used by every product card on
+   the site (catalog, categories, home, search, favorites, related
+   products, admin). Loaded last so it wins over the older card
+   rules in style.css / extra.css / mobile.css / responsive.css.
+   Colors: only existing variables.
+   ============================================================ */
+.product-grid { align-items: stretch; }
+
+.product-card {
+  container-type: inline-size; /* lets the badge adapt to the card width */
+}
+
+.product-card .product-media {
+  aspect-ratio: 3 / 4;
+  flex: none;
+}
+.product-card .product-media img { object-fit: cover; }
+
+/* ---------- description ---------- */
+.product-card .product-body {
+  padding: 12px;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.product-card .product-cat {
+  font-size: .64rem;
+  letter-spacing: .1em;
+  line-height: 1.25;
+}
+.product-card .product-name {
+  margin: 0;
+  font-size: .95rem;
+  line-height: 1.3;
+  height: auto;
+  /* long names: at most 2 lines, then … */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.product-card .rating {
+  gap: 5px;
+  font-size: .72rem;
+  line-height: 1.2;
+}
+.product-card .rating .stars .ico { width: 12px; height: 12px; }
+
+/* price (left) + "Delivery today" (right) on one row, pinned to the bottom
+   so every card in a row lines up */
+.product-card .price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 6px;
+  min-width: 0;
+}
+.product-card .price {
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  flex: 0 0 auto;   /* the price never shrinks; the badge adapts instead */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+.product-card .price .now { font-size: 1.05rem; }
+.product-card .price .old { font-size: .78rem; }
+.product-card .sameday-badge {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  align-self: center;
+  padding: 4px 9px;
+  gap: 5px;
+  font-size: .66rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.product-card .sameday-badge .ico { flex: none; }
+.product-card .sd-text { overflow: hidden; text-overflow: ellipsis; }
+/* narrow cards: the badge becomes a round truck icon (full label stays as
+   tooltip / for screen readers) and the rating shows "4.9 (128)" */
+@container (max-width: 250px) {
+  .product-card .sameday-badge { padding: 5px; }
+  .product-card .sd-text { display: none; }
+  .product-card .r-word { display: none; }
+}
+
+/* ---------- phones: compact basket button over the photo ---------- */
+.product-card .mob-add { display: none; }
+@media (max-width: 768px) {
+  .product-card .product-body { padding: 8px 10px 10px; gap: 2px; }
+  .product-card .product-cat { font-size: .6rem; }
+  .product-card .product-name { font-size: .84rem; line-height: 1.25; }
+  .product-card .rating { font-size: .68rem; }
+  .product-card .price-row { padding-top: 4px; gap: 6px; }
+  .product-card .price { gap: 4px; }
+  .product-card .price .now { font-size: .92rem; }
+  .product-card .price .old { font-size: .7rem; }
+  .product-card .sameday-badge { padding: 4px; }
+  .product-card .product-media .mob-add {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 38px;
+    height: 38px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(224, 27, 36, .35);
+    transition: transform .2s ease;
+    z-index: 2;
+  }
+  .product-card .product-media .mob-add:active { transform: scale(.92); }
+}
+
+/* ---------- touch screens (phones, tablets, phones turned sideways) ----------
+   The "Add to basket / View" pair only appears on mouse hover. On touch
+   screens a tap "sticks" the hover, so the pair popped up and didn't fit on
+   the photo. Touch screens use the round basket button instead; tapping the
+   photo still opens the quick view. (extra.css set display:flex on
+   .product-card .quick, which beat mobile.css's display:none.) */
+@media (max-width: 768px), (hover: none) {
+  .product-card .quick { display: none !important; }
+  .product-card .product-media .mob-add {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 38px;
+    height: 38px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(224, 27, 36, .35);
+    transition: transform .2s ease;
+    z-index: 2;
+  }
+  .product-card .product-media .mob-add:active { transform: scale(.92); }
+}
+
+/* Mouse screens: the two buttons always fit inside the photo, even on narrow
+   cards and in long languages (text shortens with … instead of spilling out). */
+.product-card .quick .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- placeholder cards while the flowers load ---------- */
+@keyframes skelPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.product-card.skel { pointer-events: none; }
+.product-card.skel .product-media,
+.product-card.skel .skel-line { background: var(--bg-alt); animation: skelPulse 1.4s ease-in-out infinite; }
+.product-card.skel .skel-line { display: block; height: 10px; border-radius: 6px; width: 45%; }
+.product-card.skel .skel-line.short { width: 80%; height: 14px; }
+.product-card.skel .skel-line.price { width: 35%; height: 16px; margin-top: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .product-card.skel .product-media, .product-card.skel .skel-line { animation: none; }
+}
+
+/* narrow cards with a discount: the old price moves under the new one, so
+   the round "today" truck badge always has room (audit fix) */
+@container (max-width: 250px) {
+  .product-card .price { flex: 0 1 auto; flex-wrap: wrap; min-width: 0; row-gap: 0; }
+  .product-card .sameday-badge { flex: none; }
+}

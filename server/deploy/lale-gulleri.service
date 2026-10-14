@@ -1,0 +1,22 @@
+# systemd service: starts the shop server at boot and restarts it if it stops.
+# Copy to /etc/systemd/system/lale-gulleri.service
+[Unit]
+Description=Lale Gulleri shop server
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=lale
+WorkingDirectory=/var/www/lale-gulleri/server
+ExecStart=/usr/bin/node --env-file=/var/www/lale-gulleri/server/.env src/index.js
+Restart=always
+RestartSec=3
+# security: the server may only write to its photo folder
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/www/lale-gulleri/server/uploads
+
+[Install]
+WantedBy=multi-user.target

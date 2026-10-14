@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://lale-gulleri.web.app/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://lale-gulleri.web.app/catalog</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://lale-gulleri.web.app/categories</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://lale-gulleri.web.app/roses</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://lale-gulleri.web.app/tulips</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://lale-gulleri.web.app/bouquets</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://lale-gulleri.web.app/gifts</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://lale-gulleri.web.app/about</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://lale-gulleri.web.app/contact</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://lale-gulleri.web.app/delivery</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+</urlset>
