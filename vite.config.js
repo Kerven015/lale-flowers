@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react'
 const SERVER = { target: 'http://127.0.0.1:3000', changeOrigin: false }
 
 export default defineConfig({
+  base: '/lale-flowers/',
   plugins: [react()],
   server: {
     port: 5173,

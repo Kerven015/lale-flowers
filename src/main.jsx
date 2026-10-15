@@ -19,7 +19,6 @@ import './styles/card.css'
 import './styles/description.css'
 import './styles/nav-icons.css'
 import './styles/motion.css'
-
 // Data the old browser-only version kept on this device (accounts, orders,
 // admin changes). Everything now lives on the server, so it is removed.
 try {
