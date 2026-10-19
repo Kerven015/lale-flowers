@@ -134,6 +134,17 @@ export function AdminCustomers({ L, call }) {
     } catch { toast(L.loadFailed, 'error') }
   }
 
+  // Blocked customers cannot sign in (password or Google) and are logged out
+  async function block(c) {
+    const blocked = !c.blocked
+    if (blocked && !window.confirm(L.cusBlockConfirm.replace('{email}', c.email))) return
+    try {
+      await call(`/api/admin/customers/${c.id}/block`, { method: 'POST', body: { blocked } })
+      setList((l) => l.map((x) => (x.id === c.id ? { ...x, blocked } : x)))
+      toast(blocked ? L.cusBlocked : L.cusUnblocked)
+    } catch { toast(L.loadFailed, 'error') }
+  }
+
   async function remove(c) {
     if (!window.confirm(L.cusDeleteConfirm.replace('{name}', `${c.first} ${c.last}`.trim()).replace('{email}', c.email))) return
     try {
@@ -152,16 +163,24 @@ export function AdminCustomers({ L, call }) {
       </div>
       <ListState state={state} empty={state === 'ready' && !list.length ? L.cusEmpty : ''} L={L} onRetry={reload} icon="users" />
       {list.map((c) => (
-        <article key={c.id} className="adm-card-row adm-customer">
+        <article key={c.id} className={`adm-card-row adm-customer${c.blocked ? ' is-blocked' : ''}`}>
           <div className="adm-customer-main">
             <strong>{c.first} {c.last}</strong>
             <a className="adm-order-link" href={`mailto:${c.email}`}><Icon name="mail" size={15} />{c.email}</a>
             {c.phone && <a className="adm-order-link" href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={15} />{c.phone}</a>}
             <small className="muted">{L.cusOrders.replace('{n}', c.orders)} · {L.cusSince.replace('{d}', orderDate(c.createdAt, lang))}</small>
+            <div className="adm-cus-tags" aria-label={L.cusSignIn}>
+              {c.google && <span className="adm-cus-tag">Google</span>}
+              {c.password && <span className="adm-cus-tag">{L.cusPassword}</span>}
+              {c.blocked && <span className="adm-cus-tag is-blocked">{L.cusBlockedTag}</span>}
+            </div>
           </div>
           <div className="adm-customer-side">
             <div className="adm-customer-actions">
               <button type="button" className="btn btn-outline btn-sm" onClick={() => reset(c)}><Icon name="key" size={16} />{L.cusReset}</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => block(c)} aria-pressed={c.blocked} aria-label={`${c.blocked ? L.cusUnblock : L.cusBlock} – ${c.email}`}>
+                <Icon name="lock" size={16} />{c.blocked ? L.cusUnblock : L.cusBlock}
+              </button>
               <button type="button" className="btn btn-outline btn-sm adm-cus-delete" onClick={() => remove(c)} aria-label={`${L.cusDelete} – ${c.email}`}>
                 <Icon name="trash" size={16} />{L.cusDelete}
               </button>

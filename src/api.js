@@ -42,6 +42,10 @@ const MESSAGES = {
   too_large: 'err.tooLarge',
   invalid_credentials: 'auth.errUser',
   email_taken: 'auth.errExists',
+  google_failed: 'auth.errGoogle',
+  google_disabled: 'auth.errGoogle',
+  account_blocked: 'auth.errBlocked',
+  password_required: 'profile.needPassword',
 }
 export function errorMessage(t, err) {
   return t(MESSAGES[err?.code] || 'err.server')

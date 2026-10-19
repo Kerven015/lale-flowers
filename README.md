@@ -105,6 +105,13 @@ Public: `GET /api/products`, `POST /api/orders`, `GET /api/orders/:code`,
 `POST /api/contact`, `POST /api/newsletter`, `/api/auth/*`, `GET /api/account/orders`.
 Admin (login required): `/api/admin/*`.
 
+**Continue with Google** (optional): set `GOOGLE_CLIENT_ID` in `server/.env`,
+see [docs/google-sign-in.md](docs/google-sign-in.md).
+
+**Tests:** `npm test` (website) and `cd server && npm test` (server; needs a
+PostgreSQL database whose name ends in `_test`, set with `TEST_DATABASE_URL`,
+default `postgres://lale_test:lale_test@127.0.0.1:5432/lale_test`).
+
 Delivery rules live in two places and must match:
 `server/src/config.js` (`SHOP`) and `src/store/cartSlice.js` (`FREE_FROM`, `DELIVERY_PRICE`).
 The server's numbers are the ones that count for orders.

@@ -4,13 +4,14 @@ import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { errorMessage } from '../api'
 import FormField from '../components/FormField'
+import { GoogleButton } from '../components/GoogleSignIn'
 import { checkFields, clearError, focusFirstError, keysFromServer } from '../utils/formCheck'
 import { useAuth } from '../store/hooks'
 
 const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Register() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { register, user } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -41,6 +42,7 @@ export default function Register() {
       email: f.email.value.trim(),
       phone: f.phone.value.trim(),
       password: f.password.value,
+      lang,
     })
     setBusy(false)
     if (!result.ok) {
@@ -87,6 +89,7 @@ export default function Register() {
             {busy ? t('form.sending') : t('auth.registerBtn')}
           </button>
         </form>
+        <GoogleButton />
         <p className="auth-foot">
           {t('auth.haveAccount')} <Link to="/login">{t('auth.loginLink')}</Link>
         </p>

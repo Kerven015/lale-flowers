@@ -240,14 +240,33 @@ export function register(router) {
       where = 'WHERE c.email ILIKE $1 OR c.first_name ILIKE $1 OR c.last_name ILIKE $1 OR c.phone ILIKE $1'
     }
     const { rows } = await query(
-      `SELECT c.id, c.email, c.first_name, c.last_name, c.phone, c.created_at,
+      `SELECT c.id, c.email, c.first_name, c.last_name, c.phone, c.created_at, c.blocked_at,
+              c.password_hash IS NOT NULL AS has_password,
+              EXISTS (SELECT 1 FROM user_identities i WHERE i.user_id = c.id AND i.provider = 'google') AS google,
               (SELECT count(*)::int FROM orders o WHERE o.customer_id = c.id) AS orders
        FROM customers c ${where} ORDER BY c.created_at DESC LIMIT 200`,
       params,
     )
     sendJson(ctx.res, 200, {
-      customers: rows.map((c) => ({ id: c.id, email: c.email, first: c.first_name, last: c.last_name, phone: c.phone, orders: c.orders, createdAt: c.created_at })),
+      customers: rows.map((c) => ({
+        id: c.id, email: c.email, first: c.first_name, last: c.last_name, phone: c.phone, orders: c.orders, createdAt: c.created_at,
+        google: c.google, password: c.has_password, blocked: !!c.blocked_at,
+      })),
     })
+  })
+
+  // Block / unblock a customer: body { blocked: true | false }. A blocked
+  // customer cannot sign in (password or Google) and is logged out at once.
+  router.post('/api/admin/customers/:id/block', json(), requireAdmin, async (ctx) => {
+    const id = idParam(ctx)
+    if (typeof ctx.body.blocked !== 'boolean') throw badRequest({ blocked: 'invalid' })
+    const { rowCount } = await query(
+      `UPDATE customers SET blocked_at = CASE WHEN $2 THEN COALESCE(blocked_at, now()) ELSE NULL END WHERE id = $1`,
+      [id, ctx.body.blocked],
+    )
+    if (!rowCount) throw new HttpError(404, 'not_found')
+    if (ctx.body.blocked) await query(`DELETE FROM sessions WHERE kind = 'customer' AND customer_id = $1`, [id])
+    sendJson(ctx.res, 200, { ok: true, blocked: ctx.body.blocked })
   })
 
   // A customer forgot their password: make a new temporary one. The admin
