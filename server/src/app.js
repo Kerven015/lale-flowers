@@ -35,6 +35,8 @@ function securityHeaders(res) {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+  // lets the "Sign in with Google" pop-up report back to this page
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
 }
 
 async function handle(req, res) {

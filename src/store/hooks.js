@@ -16,7 +16,7 @@ import {
   selectFavorites, selectOrderable, selectSoldOutIds, selectTotals, setQty, toggleFavorite,
 } from './cartSlice'
 import {
-  changePassword, login, logout, refreshUser, register, selectAuthReady, selectUser, updateProfile,
+  changeEmail, changePassword, googleLogin, login, logout, refreshUser, register, selectAuthReady, selectUser, updateProfile,
 } from './authSlice'
 
 // ---- flowers ---------------------------------------------------------------
@@ -133,6 +133,8 @@ export function useAuth() {
     logout: () => dispatch(logout()),
     updateProfile: (data) => dispatch(updateProfile(data)),
     changePassword: (current, next) => dispatch(changePassword(current, next)),
+    changeEmail: (email, password) => dispatch(changeEmail(email, password)),
+    googleLogin: (credential, lang) => dispatch(googleLogin(credential, lang)),
   }), [dispatch])
 
   return useMemo(() => ({ user, ready, ...actions }), [user, ready, actions])

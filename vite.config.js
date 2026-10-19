@@ -10,6 +10,8 @@ const SERVER = { target: 'http://127.0.0.1:3000', changeOrigin: false }
 export default defineConfig({
   base: '/lale-flowers/',
   plugins: [react()],
+  // npm test (the server has its own tests: cd server && npm test)
+  test: { include: ['src/**/*.test.{js,jsx}'] },
   server: {
     port: 5173,
     host: true,

@@ -3,6 +3,7 @@
 // logged in so the pages can show it.
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import { ApiError, api } from '../api'
+import { googleSignedOut } from '../utils/googleSignIn'
 
 const authSlice = createSlice({
   name: 'auth',
@@ -58,8 +59,16 @@ export const login = (email, password, remember) => (dispatch) => attempt(async 
   return { user: r.user }
 })
 
+// credential = the ID token Google gave the browser
+export const googleLogin = (credential, lang) => (dispatch) => attempt(async () => {
+  const r = await api('/api/auth/google', { method: 'POST', body: { credential, lang } })
+  dispatch(userSet(r.user))
+  return { user: r.user }
+})
+
 export const logout = () => async (dispatch) => {
   try { await api('/api/auth/logout', { method: 'POST' }) } catch {}
+  googleSignedOut()
   dispatch(userSet(null))
 }
 
@@ -69,9 +78,17 @@ export const updateProfile = (data) => (dispatch) => attempt(async () => {
   return { user: r.user }
 })
 
-export const changePassword = (current, next) => () => attempt(async () => {
-  await api('/api/auth/password', { method: 'POST', body: { current, next } })
-  return {}
+// current is empty when the account has no password yet (made with Google)
+export const changePassword = (current, next) => (dispatch) => attempt(async () => {
+  const r = await api('/api/auth/password', { method: 'POST', body: { current, next } })
+  dispatch(userSet(r.user))
+  return { user: r.user }
+})
+
+export const changeEmail = (email, password) => (dispatch) => attempt(async () => {
+  const r = await api('/api/auth/email', { method: 'POST', body: { email, password } })
+  dispatch(userSet(r.user))
+  return { user: r.user }
 })
 
 export const selectUser = (state) => state.auth.user

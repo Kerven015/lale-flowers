@@ -29,6 +29,9 @@ export const config = {
   trustProxy: flag(env.TRUST_PROXY, false),
   // Extra allowed site addresses (comma separated), e.g. https://lalegulleri.tm
   allowedOrigins: (env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean),
+  // "Continue with Google": the public OAuth Client ID from Google Cloud
+  // Console (see docs/google-sign-in.md). Empty = Google sign-in is switched off.
+  googleClientId: (env.GOOGLE_CLIENT_ID || '').trim() || null,
 }
 
 // Shop rules. Keep in sync with src/store/cartSlice.js (FREE_FROM, DELIVERY_PRICE).

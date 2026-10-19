@@ -4,6 +4,7 @@ import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { errorMessage } from '../api'
 import FormField from '../components/FormField'
+import { GoogleButton } from '../components/GoogleSignIn'
 import { checkFields, clearError, focusFirstError } from '../utils/formCheck'
 import { useAuth } from '../store/hooks'
 
@@ -62,6 +63,7 @@ export default function Login() {
             {busy ? t('form.sending') : t('auth.loginBtn')}
           </button>
         </form>
+        <GoogleButton />
 
         <p className="auth-hint muted">{t('auth.forgotText')}</p>
         <p className="auth-foot">
