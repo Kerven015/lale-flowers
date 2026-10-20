@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { errorMessage } from '../api'
 import FormField from '../components/FormField'
 import { GoogleButton } from '../components/GoogleSignIn'
+import { useFinishSignIn } from '../components/PendingCart'
 import { checkFields, clearError, focusFirstError } from '../utils/formCheck'
 import { useAuth } from '../store/hooks'
+import { hasPendingAdd } from '../store/cartSlice'
 
 const LOGO = '/images/lale%20gulleri.jpg'
 
@@ -14,15 +16,18 @@ export default function Login() {
   const { t } = useI18n()
   const { login, user } = useAuth()
   const { toast } = useToast()
-  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null) // ApiError from the server
   const [errors, setErrors] = useState({}) // field -> translation key
 
-  // already logged in -> straight to the profile
+  // came here from "Add to basket": the flower is added after signing in
+  const [forBasket] = useState(hasPendingAdd)
+  const finish = useFinishSignIn()
+
+  // signed in (now or already) -> back to the flower, or to the profile
   useEffect(() => {
-    if (user) navigate('/profile', { replace: true })
-  }, [user, navigate])
+    if (user) finish()
+  }, [user, finish])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -50,6 +55,7 @@ export default function Login() {
         <img className="auth-logo" src={LOGO} alt="Lale Gülleri" />
         <h1>{t('auth.loginTitle')}</h1>
         <p className="auth-sub">{t('auth.loginSub')}</p>
+        {forBasket && <p className="auth-notice" role="status">{t('cart.signInToAdd')}</p>}
 
         <form onSubmit={onSubmit} onInput={clearError(setErrors)} noValidate>
           <FormField id="login-email" label={t('auth.email')} error={errors.email} style={{ textAlign: 'left' }} name="email" type="email" autoComplete="email" maxLength={254} />

@@ -3,6 +3,7 @@
 // useAuth().
 import { useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/catalog'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
@@ -12,7 +13,7 @@ import {
   deleteProducts, fetchProducts, retrying, saveProduct, selectProducts, selectProductsStatus,
 } from './productsSlice'
 import {
-  DELIVERY_PRICE, FREE_FROM, addManyToCart, addToCart, clearCart, removeFromCart, selectCart,
+  DELIVERY_PRICE, FREE_FROM, clearCart, removeFromCart, requestAdd, selectCart,
   selectFavorites, selectOrderable, selectSoldOutIds, selectTotals, setQty, toggleFavorite,
 } from './cartSlice'
 import {
@@ -86,9 +87,21 @@ export function useCart() {
   const { count, subtotal, delivery, total } = useSelector(selectTotals)
   const { toast } = useToast()
   const { t } = useI18n()
+  const navigate = useNavigate()
+  const { pathname, search } = useLocation()
 
-  const add = useCallback((id, qty) => dispatch(addToCart(id, qty)), [dispatch])
-  const addMany = useCallback((ids) => dispatch(addManyToCart(ids)), [dispatch])
+  // Only signed-in customers can add to the basket. A guest is sent to
+  // registration; the flower goes into the basket right after they sign in.
+  // Returns true (added), false (sold out) or null (sent to sign in).
+  // then = page to open after signing in (default: back to this page).
+  const request = useCallback((items, then) => {
+    const r = dispatch(requestAdd(items, then || pathname + search))
+    if (r !== 'signin') return r
+    navigate('/register') // the page says why (cart.signInToAdd)
+    return null
+  }, [dispatch, navigate, pathname, search])
+  const add = useCallback((id, qty, { then } = {}) => request([{ id, qty }], then), [request])
+  const addMany = useCallback((ids) => request(ids.map((id) => ({ id, qty: 1 }))), [request])
   const changeQty = useCallback((id, qty) => dispatch(setQty(id, qty)), [dispatch])
   const remove = useCallback((id) => dispatch(removeFromCart(id)), [dispatch])
   const clear = useCallback(() => dispatch(clearCart()), [dispatch])

@@ -19,8 +19,9 @@ export default function Favorites() {
           {!loading && !!list.length && (
             <div style={{ marginBottom: 24 }}>
               <button className="btn btn-primary" onClick={() => {
-                if (addMany(list.map((p) => p.id))) notify('notify.allAdded')
-                else notify('prod.out', 'error') // every favourite is sold out
+                const r = addMany(list.map((p) => p.id))
+                if (r) notify('notify.allAdded')
+                else if (r === false) notify('prod.out', 'error') // every favourite is sold out
               }}>{t('fav.addAll')}</button>
             </div>
           )}

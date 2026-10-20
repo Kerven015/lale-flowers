@@ -339,6 +339,7 @@ export const I18N = {
       'profile.dangerZone': 'Hasapdan çykmak',
 
       'notify.added': 'Sebede goşuldy',
+      'cart.signInToAdd': "Sebede goşmak üçin hasabyňyza giriň ýa-da hasap dörediň.",
       'notify.removed': 'Sebetden aýryldy',
       'notify.favAdded': 'Halanlara goşuldy',
       'notify.favRemoved': 'Halanlardan aýryldy',
@@ -793,6 +794,7 @@ export const I18N = {
       'profile.dangerZone': 'Выход из аккаунта',
 
       'notify.added': 'Добавлено в корзину',
+      'cart.signInToAdd': "Чтобы добавить товар в корзину, войдите или создайте аккаунт.",
       'notify.removed': 'Удалено из корзины',
       'notify.favAdded': 'Добавлено в избранное',
       'notify.favRemoved': 'Удалено из избранного',
@@ -1247,6 +1249,7 @@ export const I18N = {
       'profile.dangerZone': 'Hesaptan çıkış',
 
       'notify.added': 'Sepete eklendi',
+      'cart.signInToAdd': "Sepete eklemek için giriş yapın veya bir hesap oluşturun.",
       'notify.removed': 'Sepetten kaldırıldı',
       'notify.favAdded': 'Favorilere eklendi',
       'notify.favRemoved': 'Favorilerden kaldırıldı',
