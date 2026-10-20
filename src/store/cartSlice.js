@@ -3,6 +3,7 @@
 import { createSelector, createSlice } from '@reduxjs/toolkit'
 import { readJSON } from '../utils/storage'
 import { selectProductById, selectProducts } from './productsSlice'
+import { selectUser } from './authSlice'
 
 export const CART_KEY = 'lale_cart'
 export const FAV_KEY = 'lale_favorites'
@@ -36,9 +37,6 @@ const cartSlice = createSlice({
     added(state, { payload: { id, qty } }) {
       addOne(state.items, id, qty)
     },
-    addedMany(state, { payload: ids }) {
-      for (const id of ids) addOne(state.items, id, 1)
-    },
     qtySet(state, { payload: { id, qty } }) {
       if (qty <= 0) state.items = state.items.filter((item) => item.id !== id)
       else {
@@ -60,27 +58,63 @@ const cartSlice = createSlice({
   },
 })
 
-const { added, addedMany, qtySet, removed, cleared, favoriteToggled } = cartSlice.actions
+const { added, qtySet, removed, cleared, favoriteToggled } = cartSlice.actions
 export default cartSlice.reducer
 
-// ---- actions used by the pages ---------------------------------------------
-// These return true/false, like before, so a page can show "added" or not.
+// ---- only signed-in customers can fill the basket ---------------------------
+// A guest's "Add to basket" is remembered here (this tab only, 30 minutes)
+// while they register or sign in; then it goes into the basket.
+export const PENDING_KEY = 'lale_pending_add'
+const PENDING_MINUTES = 30
 
-export const addToCart = (id, qty = 1) => (dispatch, getState) => {
-  id = parseInt(id, 10)
-  qty = Math.max(1, parseInt(qty, 10) || 1)
-  // sold-out flowers can't be ordered, so they don't go into the basket
-  if (!selectProductById(getState(), id)?.inStock) return false
-  dispatch(added({ id, qty }))
+function savePending(items, back) {
+  try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ items, back, at: Date.now() })) } catch {}
+}
+
+// The remembered flowers, or null (nothing waiting, or older than 30 minutes).
+function readPending() {
+  try {
+    const p = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null')
+    if (p && Array.isArray(p.items) && Date.now() - p.at <= PENDING_MINUTES * 60_000) return p
+    sessionStorage.removeItem(PENDING_KEY)
+  } catch {}
+  return null
+}
+
+function takePending() {
+  const p = readPending()
+  try { sessionStorage.removeItem(PENDING_KEY) } catch {}
+  return p
+}
+
+export const hasPendingAdd = () => !!readPending()
+
+// What a basket button should do. Returns
+//   true     -> added
+//   false    -> nothing could be added (sold out)
+//   'signin' -> a guest: remembered, the page must open registration
+// back = page to return to after signing in.
+export const requestAdd = (items, back) => (dispatch, getState) => {
+  const valid = items
+    .map(({ id, qty }) => ({ id: parseInt(id, 10), qty: Math.max(1, parseInt(qty, 10) || 1) }))
+    .filter(({ id }) => selectProductById(getState(), id)?.inStock)
+  if (!valid.length) return false
+  if (!selectUser(getState())) {
+    savePending(valid, back)
+    return 'signin'
+  }
+  for (const { id, qty } of valid) dispatch(added({ id, qty }))
   return true
 }
 
-// Favourites -> "Add all to basket"
-export const addManyToCart = (ids) => (dispatch, getState) => {
-  const valid = ids.map((v) => parseInt(v, 10)).filter((id) => selectProductById(getState(), id)?.inStock)
-  if (!valid.length) return false
-  dispatch(addedMany(valid))
-  return true
+// After signing in / registering: put the remembered flowers into the basket.
+// Returns the page to go back to, or null when nothing was waiting.
+export const applyPendingAdd = () => (dispatch, getState) => {
+  if (!selectUser(getState())) return null
+  const p = takePending()
+  if (!p) return null
+  const result = dispatch(requestAdd(p.items, p.back))
+  return { back: typeof p.back === 'string' && p.back.startsWith('/') && !p.back.startsWith('//') ? p.back : '/cart', added: result === true }
 }
 
 export const setQty = (id, qty) => (dispatch) => {

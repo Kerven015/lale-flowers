@@ -4,6 +4,7 @@ import Header from './Header'
 import Footer from './Footer'
 import BottomNav from './BottomNav'
 import { GoogleAuth } from './GoogleSignIn'
+import PendingCart from './PendingCart'
 import { CardTilt, ScrollProgress } from '../motion/Ambient'
 import { QuickViewProvider } from '../motion/QuickView'
 
@@ -27,6 +28,7 @@ export default function Layout() {
       <ScrollProgress enabled={/^\/(about|delivery|product\/)/.test(pathname)} />
       <CardTilt />
       <GoogleAuth />
+      <PendingCart />
       <Header />
       <main>
         {/* keyed by path: each page change replays the soft fade-up */}

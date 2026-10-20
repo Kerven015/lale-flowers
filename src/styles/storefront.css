@@ -1345,3 +1345,6 @@ main { animation-fill-mode: backwards; }
 .google-btn { display: flex; justify-content: center; min-height: 44px; color-scheme: normal; }
 .google-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: .8rem; font-weight: 600; }
 .profile-note { margin: 0 0 12px; font-size: .88rem; line-height: 1.5; }
+
+/* "Sign in to add to your basket" note on the sign-in / register pages */
+.auth-notice { margin: -12px 0 20px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-alt); font-size: .88rem; line-height: 1.45; text-align: center; }

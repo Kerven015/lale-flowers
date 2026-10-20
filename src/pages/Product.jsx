@@ -122,7 +122,7 @@ export default function Product() {
                   <button className="btn btn-outline btn-lg" disabled>{t('prod.out')}</button>
                 )}
                 {product.inStock && (
-                  <button className="btn btn-outline btn-lg" onClick={() => { add(product.id, qty); navigate('/checkout') }}>
+                  <button className="btn btn-outline btn-lg" onClick={() => { if (add(product.id, qty, { then: '/checkout' })) navigate('/checkout') }}>
                     {t('product.buyNow')}
                   </button>
                 )}

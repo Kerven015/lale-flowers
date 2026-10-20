@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { errorMessage } from '../api'
 import FormField from '../components/FormField'
 import { GoogleButton } from '../components/GoogleSignIn'
+import { useFinishSignIn } from '../components/PendingCart'
 import { checkFields, clearError, focusFirstError, keysFromServer } from '../utils/formCheck'
 import { useAuth } from '../store/hooks'
+import { hasPendingAdd } from '../store/cartSlice'
 
 const LOGO = '/images/lale%20gulleri.jpg'
 
@@ -14,14 +16,18 @@ export default function Register() {
   const { t, lang } = useI18n()
   const { register, user } = useAuth()
   const { toast } = useToast()
-  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null) // ApiError from the server
   const [fieldErrors, setFieldErrors] = useState({}) // field -> translation key
 
+  // came here from "Add to basket": the flower is added after signing up
+  const [forBasket] = useState(hasPendingAdd)
+  const finish = useFinishSignIn()
+
+  // signed in (now or already) -> back to the flower, or to the profile
   useEffect(() => {
-    if (user && !busy) navigate('/profile', { replace: true })
-  }, [user, busy, navigate])
+    if (user && !busy) finish()
+  }, [user, busy, finish])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -56,8 +62,7 @@ export default function Register() {
       }
       return
     }
-    toast(t('auth.okRegister'))
-    navigate('/profile')
+    toast(t('auth.okRegister')) // the effect above moves on
   }
 
   const field = (name, label, props = {}) => (
@@ -70,6 +75,7 @@ export default function Register() {
         <img className="auth-logo" src={LOGO} alt="Lale Gülleri" />
         <h1>{t('auth.registerTitle')}</h1>
         <p className="auth-sub">{t('auth.registerSub')}</p>
+        {forBasket && <p className="auth-notice" role="status">{t('cart.signInToAdd')}</p>}
         <form onSubmit={onSubmit} onInput={clearError(setFieldErrors)} onChange={clearError(setFieldErrors)} noValidate>
           <div className="form-grid">
             {field('first', t('auth.first'), { autoComplete: 'given-name', maxLength: 80 })}
