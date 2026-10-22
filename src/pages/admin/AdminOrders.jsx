@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { StatusPill, lineName, orderDate } from '../../components/OrderStatus'
 import { formatPrice } from '../../utils/productHelpers'
 import Icon from '../../components/Icons'
+import { useProducts } from '../../store/hooks'
 
 const FILTERS = [
   ['new', 'fNew'],
@@ -67,6 +68,9 @@ function OrderCard({ order, L, onChange }) {
         {order.items.map((i, k) => (
           <li key={k}><span>{lineName(i, lang)} × {i.qty}</span><span>{formatPrice(i.price * i.qty)}</span></li>
         ))}
+        {order.discount > 0 && (
+          <li className="muted"><span>{order.discountCode ? L.ordDiscountCode.replace('{code}', order.discountCode) : L.ordDiscountFirst}</span><span>−{formatPrice(order.discount)}</span></li>
+        )}
         <li className="muted"><span>{L.ordDeliveryFee}</span><span>{order.deliveryFee ? formatPrice(order.deliveryFee) : L.ordFree}</span></li>
         <li className="adm-order-total"><span>{L.ordTotal}</span><span>{formatPrice(order.total)}</span></li>
       </ul>
@@ -121,6 +125,7 @@ function OrderCard({ order, L, onChange }) {
 export default function AdminOrders({ L, call, summary, version, onChanged }) {
   const { t } = useI18n()
   const { toast } = useToast()
+  const { reload: reloadProducts } = useProducts()
   const [filter, setFilter] = useState('new')
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
@@ -159,12 +164,15 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
     try {
       const data = await call(`/api/admin/orders/${id}`, { method: 'PATCH', body: patch })
       setOrders((list) => list.map((o) => (o.id === id ? data.order : o)))
-      if (patch.status) toast(L.ordUpdated)
+      if (patch.status) {
+        toast(L.ordUpdated)
+        reloadProducts() // cancelling / restoring changes the flowers left
+      }
       onChanged()
-    } catch {
-      toast(L.loadFailed, 'error')
+    } catch (err) {
+      toast(err?.code === 'not_enough_stock' ? L.ordNoStock : L.loadFailed, 'error')
     }
-  }, [call, toast, L, onChanged])
+  }, [call, toast, L, onChanged, reloadProducts])
 
   const count = (key) => (key === 'new' ? summary?.newOrders : key === 'active' ? summary?.activeOrders : null)
 

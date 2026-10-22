@@ -54,6 +54,18 @@ export function productDesc(product, lang = 'tm') {
   return product?.i18n?.[lang]?.desc || product?.i18n?.tm?.desc || product?.i18n?.ru?.desc || ''
 }
 
+// "Free from {free} TMT" + { free: 200 } -> "Free from 200 TMT"
+export function fill(text, values) {
+  return String(text).replace(/\{(\w+)\}/g, (m, k) => (values[k] === undefined ? m : values[k]))
+}
+
+// "Only 3 left" when the flowers are counted and few are left (null = don't show)
+export const FEW_LEFT = 10
+export function fewLeft(product) {
+  const s = product?.stock
+  return s !== null && s !== undefined && s > 0 && s <= FEW_LEFT ? s : null
+}
+
 export function formatPrice(value) {
   return `${value} TMT`
 }

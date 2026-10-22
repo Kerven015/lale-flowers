@@ -3,6 +3,7 @@
 //   TEST_DATABASE_URL=postgres://USER:PASS@127.0.0.1:5432/lale_test npm test
 import crypto from 'node:crypto'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 const url = process.env.TEST_DATABASE_URL || 'postgres://lale_test:lale_test@127.0.0.1:5432/lale_test'
@@ -11,10 +12,15 @@ if (!dbName.endsWith('_test')) {
   console.error(`Refusing to run tests on "${dbName}": the test database name must end in _test.`)
   process.exit(1)
 }
+// Each test file gets its own schema (test files run at the same time).
+const SCHEMA = `t_${process.pid}`
+const withSchema = new URL(url)
+withSchema.searchParams.set('options', `-c search_path=${SCHEMA}`)
 // set before the server code reads its settings
-process.env.DATABASE_URL = url
+process.env.DATABASE_URL = withSchema.toString()
 process.env.TRUST_PROXY = '1' // so each test can use its own visitor IP (rate limits)
 process.env.COOKIE_SECURE = '0'
+process.env.UPLOAD_DIR = path.join(os.tmpdir(), `lale-test-uploads-${process.pid}`) // never the real photos folder
 process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
 
 const { config, SERVER_DIR } = await import('../src/config.js')
@@ -25,9 +31,14 @@ export { config, pool }
 
 export const CLIENT_ID = config.googleClientId
 
+// Removes this file's schema (call when the file's tests are done).
+export async function dropSchema() {
+  await pool.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`)
+}
+
 // Empty database with every migration applied.
 export async function resetDatabase() {
-  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')
+  await pool.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE; CREATE SCHEMA ${SCHEMA};`)
   const dir = path.join(SERVER_DIR, 'migrations')
   for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
     await pool.query(fs.readFileSync(path.join(dir, f), 'utf8'))

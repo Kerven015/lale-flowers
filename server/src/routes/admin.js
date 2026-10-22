@@ -3,8 +3,10 @@ import { query, transaction } from '../db.js'
 import { HttpError, badRequest, sendJson } from '../http.js'
 import { PRODUCT_COLUMNS, checkProductForm, editedProductFields, newProductFields, toProduct } from '../products.js'
 import { endOtherSessions, endSession, hashPassword, limit, randomPassword, requireAdmin, startSession, verifyDummy, verifyPassword } from '../security.js'
-import { commitPhotos, preparePhotos, removePhotos } from '../uploads.js'
-import { itemsFor } from './shop.js'
+import { CODE_RE, normalizeCode } from '../pricing.js'
+import { checkShopSettings, getShopSettings, saveShopSettings } from '../settings.js'
+import { commitPhotos, copyPhotos, preparePhotos, removePhotos } from '../uploads.js'
+import { itemsFor, publicSettings } from './shop.js'
 import { json } from './common.js'
 
 const ADMIN_HOURS = 12
@@ -24,6 +26,71 @@ const idParam = (ctx) => {
   return id
 }
 
+function adminDiscount(d) {
+  return {
+    id: d.id, code: d.code, kind: d.kind, value: d.value, minTotal: d.min_total,
+    startsAt: d.starts_at, endsAt: d.ends_at, maxUses: d.max_uses, usedCount: d.used_count,
+    firstOrderOnly: d.first_order_only, active: d.active, createdAt: d.created_at,
+  }
+}
+
+// Checks the discount code form; throws a validation error listing the fields.
+function checkDiscountForm(b) {
+  const errors = {}
+  const code = normalizeCode(b.code)
+  if (!CODE_RE.test(code)) errors.code = 'invalid'
+  const kind = b.kind === 'amount' ? 'amount' : b.kind === 'percent' ? 'percent' : null
+  if (!kind) errors.kind = 'invalid'
+  const num = (field, { min, max, optional }) => {
+    const v = b[field]
+    if (optional && (v === undefined || v === null || String(v).trim() === '')) return null
+    const n = Number(v)
+    if (!Number.isInteger(n) || n < min || n > max) { errors[field] = 'invalid'; return null }
+    return n
+  }
+  const value = num('value', { min: 1, max: kind === 'percent' ? 100 : 1_000_000 })
+  const minTotal = num('minTotal', { min: 0, max: 10_000_000, optional: true }) ?? 0
+  const maxUses = num('maxUses', { min: 1, max: 10_000_000, optional: true })
+  const date = (field) => {
+    const v = b[field]
+    if (v === undefined || v === null || v === '') return null
+    const t = new Date(v)
+    if (Number.isNaN(t.getTime())) { errors[field] = 'invalid'; return null }
+    return t.toISOString()
+  }
+  const startsAt = date('startsAt')
+  const endsAt = date('endsAt')
+  if (startsAt && endsAt && endsAt <= startsAt) errors.endsAt = 'invalid'
+  if (Object.keys(errors).length) throw badRequest(errors)
+  return { code, kind, value, minTotal, maxUses, startsAt, endsAt, firstOrderOnly: b.firstOrderOnly === true, active: b.active !== false }
+}
+
+const COPY_WORD = { tm: 'nusga', ru: 'копия', tr: 'kopya' }
+
+// sign +1: an order was cancelled -> its counted flowers go back to stock
+// sign -1: a cancelled order is restored -> they are taken again (if enough)
+async function moveStock(db, orderId, discountCode, sign) {
+  const { rows: items } = await db.query(
+    `SELECT oi.product_id, sum(oi.qty)::int AS qty, p.stock FROM order_items oi
+     JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id = $1 AND p.stock IS NOT NULL GROUP BY oi.product_id, p.stock ORDER BY oi.product_id`,
+    [orderId],
+  )
+  if (sign < 0) {
+    const short = items.filter((i) => i.stock < i.qty)
+    if (short.length) throw new HttpError(409, 'not_enough_stock', { items: short.map((i) => ({ id: i.product_id, left: i.stock })) })
+  }
+  for (const i of items) {
+    await db.query(
+      'UPDATE products SET stock = stock + $2, in_stock = (stock + $2 > 0), updated_at = now() WHERE id = $1',
+      [i.product_id, sign * i.qty],
+    )
+  }
+  if (discountCode) {
+    await db.query('UPDATE discount_codes SET used_count = greatest(0, used_count - $2) WHERE upper(code) = $1', [discountCode.toUpperCase(), sign])
+  }
+}
+
 function adminOrder(o, items) {
   return {
     id: o.id,
@@ -39,6 +106,8 @@ function adminOrder(o, items) {
     payment: o.payment,
     lang: o.lang,
     subtotal: o.subtotal,
+    discount: o.discount || 0,
+    discountCode: o.discount_code || '',
     deliveryFee: o.delivery_fee,
     total: o.total,
     items: (items || []).map((i) => ({ productId: i.product_id, names: i.names, price: i.price, qty: i.qty })),
@@ -119,11 +188,14 @@ export function register(router) {
       if (!urls.length) throw badRequest({ image: 'image' })
       const f = newProductFields(form.data)
       const { rows } = await query(
-        `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, is_new, in_stock, tones, images, i18n, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, (SELECT coalesce(max(sort_order), 0) + 1 FROM products))
+        `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, is_new, in_stock, tones, images, i18n,
+           stock, colors, rating, reviews, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+           coalesce($16, (SELECT coalesce(max(sort_order), 0) + 1 FROM products)))
          RETURNING ${PRODUCT_COLUMNS}`,
         [f.slug, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.is_new, f.in_stock,
-          JSON.stringify(f.tones), JSON.stringify(urls), JSON.stringify(f.i18n)],
+          JSON.stringify(f.tones), JSON.stringify(urls), JSON.stringify(f.i18n),
+          f.stock, JSON.stringify(f.colors), f.rating, f.reviews, f.sort_order],
       )
       await query("UPDATE products SET slug = slug || '-' || id WHERE id = $1", [rows[0].id])
       return toProduct({ ...rows[0], slug: `${rows[0].slug}-${rows[0].id}` })
@@ -142,10 +214,11 @@ export function register(router) {
       removed = (row.images || []).filter((u) => !urls.includes(u))
       const { rows } = await db.query(
         `UPDATE products SET cat = $2, custom_type = $3, occasions = $4, price = $5, old_price = $6, in_stock = $7,
-           i18n = $8, images = $9, updated_at = now()
+           i18n = $8, images = $9, stock = $10, is_new = $11, sort_order = $12, colors = $13, rating = $14, reviews = $15,
+           updated_at = now()
          WHERE id = $1 RETURNING ${PRODUCT_COLUMNS}`,
         [id, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.in_stock,
-          JSON.stringify(f.i18n), JSON.stringify(urls)],
+          JSON.stringify(f.i18n), JSON.stringify(urls), f.stock, f.is_new, f.sort_order, JSON.stringify(f.colors), f.rating, f.reviews],
       )
       return toProduct(rows[0])
     }))
@@ -165,6 +238,40 @@ export function register(router) {
     await removePhotos(rows.flatMap((r) => r.images || []))
     await query(`UPDATE products SET images = '[]' WHERE id = ANY($1::int[])`, [rows.map((r) => r.id)])
     sendJson(ctx.res, 200, { deleted: rows.map((r) => r.id) })
+  })
+
+  // Copy a flower: same details and photos (copied, so each has its own),
+  // name + " (copy)", placed right after the original, not marked "New".
+  router.post('/api/admin/products/:id/duplicate', requireAdmin, async (ctx) => {
+    const id = idParam(ctx)
+    const { rows: src } = await query(`SELECT ${PRODUCT_COLUMNS} FROM products WHERE id = $1 AND deleted_at IS NULL`, [id])
+    if (!src[0]) throw new HttpError(404, 'not_found')
+    const p = src[0]
+    const images = await copyPhotos(p.images || [])
+    const i18n = Object.fromEntries(Object.entries(p.i18n || {}).map(([l, v]) => [l, { ...v, name: `${v?.name || ''} (${COPY_WORD[l] || 'copy'})`.trim() }]))
+    let product
+    try {
+      product = await transaction(async (db) => {
+        // make room right after the original
+        await db.query('UPDATE products SET sort_order = sort_order + 1 WHERE sort_order > $1', [p.sort_order])
+        const { rows } = await db.query(
+          `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, rating, reviews, colors, is_new, in_stock,
+             stock, tones, images, i18n, sort_order)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,$12,$13,$14,$15)
+           RETURNING ${PRODUCT_COLUMNS}`,
+          [p.slug, p.cat, p.custom_type, p.occasions === null ? null : JSON.stringify(p.occasions), p.price, p.old_price,
+            p.rating, p.reviews, JSON.stringify(p.colors || []), p.in_stock, p.stock, JSON.stringify(p.tones || []),
+            JSON.stringify(images), JSON.stringify(i18n), p.sort_order + 1],
+        )
+        const slug = `${String(p.slug).replace(/-\d+$/, '')}-${rows[0].id}`
+        await db.query('UPDATE products SET slug = $2 WHERE id = $1', [rows[0].id, slug])
+        return toProduct({ ...rows[0], slug })
+      })
+    } catch (err) {
+      await removePhotos(images.filter((u) => u.startsWith('/uploads/')))
+      throw err
+    }
+    sendJson(ctx.res, 201, { product })
   })
 
   // ---- orders ----------------------------------------------------------------------
@@ -201,8 +308,15 @@ export function register(router) {
       params.push(ctx.body.adminNote.slice(0, 2000)); sets.push(`admin_note = $${params.length}`)
     }
     if (!sets.length) throw badRequest({ status: 'required' })
-    const { rows } = await query(`UPDATE orders SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, params)
-    if (!rows[0]) throw new HttpError(404, 'not_found')
+    const rows = await transaction(async (db) => {
+      const { rows: before } = await db.query('SELECT status, discount_code FROM orders WHERE id = $1 FOR UPDATE', [id])
+      if (!before[0]) throw new HttpError(404, 'not_found')
+      const was = before[0].status === 'cancelled'
+      const now = ctx.body.status === undefined ? was : ctx.body.status === 'cancelled'
+      // cancelling gives the flowers (and a code use) back; un-cancelling takes them again
+      if (was !== now) await moveStock(db, id, before[0].discount_code, now ? +1 : -1)
+      return (await db.query(`UPDATE orders SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, params)).rows
+    })
     const items = await itemsFor([id])
     sendJson(ctx.res, 200, { order: adminOrder(rows[0], items.get(id)) })
   })
@@ -285,6 +399,63 @@ export function register(router) {
   // and address they typed — so the shop's history is not lost.
   router.delete('/api/admin/customers/:id', requireAdmin, async (ctx) => {
     const { rowCount } = await query('DELETE FROM customers WHERE id = $1', [idParam(ctx)])
+    if (!rowCount) throw new HttpError(404, 'not_found')
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // ---- shop settings ------------------------------------------------------------------------
+  router.get('/api/admin/settings', requireAdmin, async (ctx) => {
+    sendJson(ctx.res, 200, { settings: publicSettings(await getShopSettings()) })
+  })
+
+  router.put('/api/admin/settings', requireAdmin, json(), async (ctx) => {
+    const form = checkShopSettings(ctx.body)
+    if (form.errors) throw badRequest(form.errors)
+    sendJson(ctx.res, 200, { settings: publicSettings(await saveShopSettings(form.data)) })
+  })
+
+  // ---- discount codes -----------------------------------------------------------------------
+  router.get('/api/admin/discounts', requireAdmin, async (ctx) => {
+    const { rows } = await query('SELECT * FROM discount_codes ORDER BY active DESC, created_at DESC LIMIT 500')
+    sendJson(ctx.res, 200, { discounts: rows.map(adminDiscount) })
+  })
+
+  router.post('/api/admin/discounts', requireAdmin, json(), async (ctx) => {
+    const d = checkDiscountForm(ctx.body)
+    try {
+      const { rows } = await query(
+        `INSERT INTO discount_codes (code, kind, value, min_total, starts_at, ends_at, max_uses, first_order_only, active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [d.code, d.kind, d.value, d.minTotal, d.startsAt, d.endsAt, d.maxUses, d.firstOrderOnly, d.active],
+      )
+      sendJson(ctx.res, 201, { discount: adminDiscount(rows[0]) })
+    } catch (err) {
+      if (err.code === '23505') throw badRequest({ code: 'taken' })
+      throw err
+    }
+  })
+
+  router.put('/api/admin/discounts/:id', requireAdmin, json(), async (ctx) => {
+    const id = idParam(ctx)
+    const d = checkDiscountForm(ctx.body)
+    try {
+      const { rows } = await query(
+        `UPDATE discount_codes SET code = $2, kind = $3, value = $4, min_total = $5, starts_at = $6, ends_at = $7,
+           max_uses = $8, first_order_only = $9, active = $10
+         WHERE id = $1 RETURNING *`,
+        [id, d.code, d.kind, d.value, d.minTotal, d.startsAt, d.endsAt, d.maxUses, d.firstOrderOnly, d.active],
+      )
+      if (!rows[0]) throw new HttpError(404, 'not_found')
+      sendJson(ctx.res, 200, { discount: adminDiscount(rows[0]) })
+    } catch (err) {
+      if (err.code === '23505') throw badRequest({ code: 'taken' })
+      throw err
+    }
+  })
+
+  // Orders keep the code text and amount, so deleting a code never changes them.
+  router.delete('/api/admin/discounts/:id', requireAdmin, async (ctx) => {
+    const { rowCount } = await query('DELETE FROM discount_codes WHERE id = $1', [idParam(ctx)])
     if (!rowCount) throw new HttpError(404, 'not_found')
     sendJson(ctx.res, 200, { ok: true })
   })

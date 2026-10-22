@@ -5,7 +5,7 @@ import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { FLOWER_TYPES } from '../data/navigation'
 import Icon from './Icons'
-import { useAuth } from '../store/hooks'
+import { useAuth, useSettings } from '../store/hooks'
 import { EMAIL_RE } from '../utils/formCheck'
 
 const LOGO = '/images/lale%20gulleri.jpg'
@@ -13,6 +13,7 @@ const LOGO = '/images/lale%20gulleri.jpg'
 export default function Footer() {
   const { t } = useI18n()
   const { toast } = useToast()
+  const { phone, email, instagram } = useSettings()
   const { user } = useAuth()
   const year = new Date().getFullYear()
   const [busy, setBusy] = useState(false)
@@ -63,11 +64,13 @@ export default function Footer() {
             <p className="footer-desc">{t('foot.desc')}</p>
             <h4 className="footer-social-title">{t('foot.social')}</h4>
             <div className="socials">
-              <a href="https://www.instagram.com/lale.gulleri/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                <Icon name="instagram" size={19} />
-              </a>
-              <a href="tel:+99312000000" aria-label={t('contact.phone')}><Icon name="phone" size={18} /></a>
-              <a href="mailto:info@lalegulleri.com" aria-label={t('contact.email')}><Icon name="mail" size={18} /></a>
+              {instagram && (
+                <a href={instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                  <Icon name="instagram" size={19} />
+                </a>
+              )}
+              {phone && <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} aria-label={t('contact.phone')}><Icon name="phone" size={18} /></a>}
+              {email && <a href={`mailto:${email}`} aria-label={t('contact.email')}><Icon name="mail" size={18} /></a>}
               <Link to="/contact" aria-label={t('contact.address')}><Icon name="pin" size={18} /></Link>
             </div>
           </div>

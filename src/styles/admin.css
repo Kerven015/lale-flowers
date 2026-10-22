@@ -318,3 +318,17 @@
 .adm-cus-tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: .75rem; font-weight: 700; }
 .adm-cus-tag.is-blocked { border-color: var(--red); color: var(--red); }
 .adm-customer.is-blocked .adm-customer-main strong { text-decoration: line-through; opacity: .7; }
+
+/* flowers left on admin cards */
+.adm-stock-tag { display: inline-block; margin: 2px 0 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: .75rem; font-weight: 700; color: var(--muted); }
+.adm-stock-tag.is-out { border-color: var(--red); color: var(--red); }
+
+/* settings + discount codes */
+.adm-settings { max-width: 760px; margin-inline: auto; }
+.adm-settings .de-section { margin-bottom: 18px; }
+.dc-value { display: flex; gap: 8px; }
+.dc-value .field:first-child { flex: 1; min-width: 0; }
+.dc-value select.field { width: 96px; flex: none; }
+.dc-code-input { text-transform: uppercase; letter-spacing: .04em; }
+.adm-discount.is-off { opacity: .65; }
+.adm-discount .adm-customer-actions { flex-wrap: wrap; }

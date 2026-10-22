@@ -1,16 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useDelivery } from '../contexts/DeliveryContext'
 import { useI18n } from '../contexts/I18nContext'
-import { discountPercent, formatPrice, productImage } from '../utils/productHelpers'
+import { discountPercent, fewLeft, fill, formatPrice, productImage } from '../utils/productHelpers'
 import Icon from './Icons'
 import Stars from './Stars'
 import { useQuickView } from '../motion/QuickView'
 import { useCart, useProducts } from '../store/hooks'
 
-// admin (optional) turns the card into the admin panel's version: edit and
-// delete buttons instead of the heart, no "add to basket", and a selection
-// mode for deleting several products at once.
-//   { onEdit, onDelete, selecting, selected, onToggleSelect, removing, labels: { edit, del, select } }
+// admin (optional) turns the card into the admin panel's version: edit,
+// duplicate and delete buttons instead of the heart, no "add to basket", the
+// number of flowers left, and a selection mode for deleting several at once.
+//   { onEdit, onDuplicate, onDelete, selecting, selected, onToggleSelect, removing,
+//     labels: { edit, copy, del, select, stockN, notCounted } }
 export default function ProductCard({ product, admin }) {
   const { t } = useI18n()
   const { name, typeName } = useProducts()
@@ -71,6 +72,11 @@ export default function ProductCard({ product, admin }) {
                 <button type="button" className="adm-act" onClick={admin.onEdit} aria-label={`${admin.labels?.edit} – ${name(product)}`} title={admin.labels?.edit}>
                   <Icon name="edit" size={17} />
                 </button>
+                {admin.onDuplicate && (
+                  <button type="button" className="adm-act" onClick={admin.onDuplicate} aria-label={`${admin.labels?.copy} – ${name(product)}`} title={admin.labels?.copy}>
+                    <Icon name="copy" size={17} />
+                  </button>
+                )}
                 <button type="button" className="adm-act adm-del" onClick={admin.onDelete} aria-label={`${admin.labels?.del} – ${name(product)}`} title={admin.labels?.del}>
                   <Icon name="trash" size={17} />
                 </button>
@@ -121,6 +127,13 @@ export default function ProductCard({ product, admin }) {
       </div>
       <div className="product-body">
         <span className="product-cat">{typeName(product)}</span>
+        {admin ? (
+          <span className={`adm-stock-tag${product.stock === 0 ? ' is-out' : ''}`}>
+            {product.stock === null || product.stock === undefined ? admin.labels?.notCounted : fill(admin.labels?.stockN || '{n}', { n: product.stock })}
+          </span>
+        ) : fewLeft(product) && (
+          <span className="stock-left">{fill(t('stock.left'), { n: fewLeft(product) })}</span>
+        )}
         <h3 className="product-name">
           <Link to={`/product/${product.id}`}>{name(product)}</Link>
         </h3>

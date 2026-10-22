@@ -9,7 +9,7 @@ import ProductGrid from './ProductGrid'
 import { useI18n } from '../contexts/I18nContext'
 import { EMPTY_FILTERS } from '../utils/catalogFilter'
 
-export default function AdminCatalog({ products, L, removing, onEdit, requestDelete }) {
+export default function AdminCatalog({ products, L, removing, onEdit, onDuplicate, requestDelete }) {
   const { t } = useI18n()
   const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS }))
   const [query, setQuery] = useState('')
@@ -33,7 +33,7 @@ export default function AdminCatalog({ products, L, removing, onEdit, requestDel
     if (await requestDelete(selected)) stopSelecting()
   }
 
-  const labels = { edit: L.editBtn, del: L.del, select: L.select }
+  const labels = { edit: L.editBtn, copy: L.duplicate, del: L.del, select: L.select, stockN: L.stockN, notCounted: L.stockNotCounted }
 
   return (
     <>
@@ -92,6 +92,7 @@ export default function AdminCatalog({ products, L, removing, onEdit, requestDel
                   removing: removing.has(p.id),
                   onToggleSelect: () => toggle(p.id),
                   onEdit: () => onEdit(p),
+                  onDuplicate: onDuplicate && (() => onDuplicate(p)),
                   onDelete: () => requestDelete([p]),
                 }}
               />

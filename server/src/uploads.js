@@ -59,4 +59,22 @@ export async function removePhotos(urls) {
   }
 }
 
+// Copies uploaded photos under new names (for a duplicated product, so
+// deleting one product never removes the other's photos). Built-in photos
+// are shared as they are. Returns the new URLs, in the same order.
+export async function copyPhotos(urls) {
+  await ensureUploadDir()
+  const out = []
+  for (const url of urls || []) {
+    const m = UPLOAD_URL_RE.exec(url)
+    if (!m) { out.push(url); continue }
+    const name = `${crypto.randomBytes(16).toString('hex')}.${m[2]}`
+    try {
+      await fs.copyFile(path.join(config.uploadDir, `${m[1]}.${m[2]}`), path.join(config.uploadDir, name), fs.constants.COPYFILE_EXCL)
+      out.push(`/uploads/${name}`)
+    } catch {} // a missing file is simply left out
+  }
+  return out
+}
+
 export const isUploadFileName = (name) => /^[a-f0-9]{32}\.(webp|jpg|png)$/.test(name)

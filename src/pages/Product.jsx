@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ProductGrid from '../components/ProductGrid'
 import { useI18n } from '../contexts/I18nContext'
-import { discountPercent, formatPrice, galleryImages } from '../utils/productHelpers'
+import { discountPercent, fewLeft, fill, formatPrice, galleryImages } from '../utils/productHelpers'
 import Icon from '../components/Icons'
 import { typeKey } from '../utils/productTypes'
 import Stars from '../components/Stars'
@@ -11,7 +11,8 @@ import ProductDescription from '../components/ProductDescription'
 import { productDetails } from '../utils/richText'
 import { useMagnetic, useSlidingPill } from '../motion/motion'
 import { REVIEWS } from '../data/reviews'
-import { useCart, useProducts } from '../store/hooks'
+import { useCart, useProducts, useSettings } from '../store/hooks'
+import { maxQtyFor } from '../store/cartSlice'
 import { usePageTitle } from '../utils/pageTitle'
 
 export default function Product() {
@@ -19,10 +20,12 @@ export default function Product() {
   const { t, lang } = useI18n()
   const { get, name, typeName, products, status, retry } = useProducts()
   const { add, isFavorite, toggleFavorite, notify } = useCart()
+  const settings = useSettings()
   const navigate = useNavigate()
   const [qty, setQty] = useState(1)
   const [tab, setTab] = useState('delivery')
   const product = get(id)
+  const maxQty = Math.max(1, maxQtyFor(product))
   usePageTitle(product ? name(product) : '')
   const addBtnRef = useRef(null)
   const tabsRef = useRef(null)
@@ -108,11 +111,12 @@ export default function Product() {
                 {product.old ? <span className="old">{formatPrice(product.old)}</span> : null}
                 {disc > 0 ? <span className="tag" style={{ position: 'static' }}>-{disc}%</span> : null}
               </div>
+              {fewLeft(product) && <p className="stock-left" role="status">{fill(t('stock.left'), { n: fewLeft(product) })}</p>}
               <div className="pv-actions" ref={actionsRef}>
                 <div className="qty">
                   <button type="button" aria-label={t('cart.less')} onClick={() => setQty((v) => Math.max(1, v - 1))}>−</button>
-                  <input type="number" value={qty} min="1" max="99" aria-label={t('product.qty')} onChange={(e) => setQty(Math.min(99, Math.max(1, +e.target.value || 1)))} />
-                  <button type="button" aria-label={t('cart.more')} onClick={() => setQty((v) => Math.min(99, v + 1))}>+</button>
+                  <input type="number" value={qty} min="1" max={maxQty} aria-label={t('product.qty')} onChange={(e) => setQty(Math.min(maxQty, Math.max(1, +e.target.value || 1)))} />
+                  <button type="button" aria-label={t('cart.more')} disabled={qty >= maxQty} onClick={() => setQty((v) => Math.min(maxQty, v + 1))}>+</button>
                 </div>
                 {product.inStock ? (
                   <button ref={addBtnRef} className="btn btn-primary btn-lg" onClick={() => { if (add(product.id, qty)) notify('notify.added') }}>
@@ -165,7 +169,7 @@ export default function Product() {
           </div>
           {tab === 'delivery' && (
             <div className="info-card">
-              <p>{t('delivery.infoText')}</p>
+              <p>{fill(t('delivery.infoText'), { free: settings.freeDeliveryFrom })}</p>
               <Link className="btn btn-outline" to="/delivery">{t('delivery.title')}</Link>
             </div>
           )}

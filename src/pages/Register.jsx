@@ -7,7 +7,8 @@ import FormField from '../components/FormField'
 import { GoogleButton } from '../components/GoogleSignIn'
 import { useFinishSignIn } from '../components/PendingCart'
 import { checkFields, clearError, focusFirstError, keysFromServer } from '../utils/formCheck'
-import { useAuth } from '../store/hooks'
+import { useAuth, useSettings } from '../store/hooks'
+import { fill } from '../utils/productHelpers'
 import { hasPendingAdd } from '../store/cartSlice'
 
 const LOGO = '/images/lale%20gulleri.jpg'
@@ -15,6 +16,7 @@ const LOGO = '/images/lale%20gulleri.jpg'
 export default function Register() {
   const { t, lang } = useI18n()
   const { register, user } = useAuth()
+  const { firstOrderDiscount } = useSettings()
   const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null) // ApiError from the server
@@ -74,7 +76,8 @@ export default function Register() {
       <div className="auth-card" style={{ width: 'min(100%, 560px)' }}>
         <img className="auth-logo" src={LOGO} alt="Lale Gülleri" />
         <h1>{t('auth.registerTitle')}</h1>
-        <p className="auth-sub">{t('auth.registerSub')}</p>
+        {/* "… {n}% off your first order" only while that discount is on */}
+        <p className="auth-sub">{firstOrderDiscount > 0 ? fill(t('auth.registerSub'), { n: firstOrderDiscount }) : t('auth.loginSub')}</p>
         {forBasket && <p className="auth-notice" role="status">{t('cart.signInToAdd')}</p>}
         <form onSubmit={onSubmit} onInput={clearError(setFieldErrors)} onChange={clearError(setFieldErrors)} noValidate>
           <div className="form-grid">

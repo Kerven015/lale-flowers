@@ -164,7 +164,7 @@ export function register(router) {
 
   router.get('/api/account/orders', requireCustomer, async (ctx) => {
     const { rows } = await query(
-      `SELECT id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total
+      `SELECT id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code
        FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 100`,
       [ctx.customerId],
     )

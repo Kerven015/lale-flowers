@@ -1,11 +1,14 @@
 import PageHead from '../components/PageHead'
 import { useI18n } from '../contexts/I18nContext'
 import Icon from '../components/Icons'
+import { useSettings } from '../store/hooks'
+import { fill } from '../utils/productHelpers'
 
 const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Delivery() {
   const { t } = useI18n()
+  const { freeDeliveryFrom } = useSettings()
   return (
     <>
       <PageHead title={t('delivery.title')} sub={t('delivery.sub')} crumbs={[{ label: t('delivery.title') }]} />
@@ -30,9 +33,9 @@ export default function Delivery() {
             <div>
               <span className="eyebrow">{t('delivery.info')}</span>
               <h2>{t('delivery.info')}</h2>
-              <p className="muted">{t('delivery.infoText')}</p>
+              <p className="muted">{fill(t('delivery.infoText'), { free: freeDeliveryFrom })}</p>
               <div className="pv-meta" style={{ marginTop: 20 }}>
-                <div><span>{t('delivery.free')}</span><span className="tick"><Icon name="check" size={18} /></span></div>
+                <div><span>{fill(t('delivery.free'), { free: freeDeliveryFrom })}</span><span className="tick"><Icon name="check" size={18} /></span></div>
                 <div><span>{t('delivery.fast')}</span><span className="tick"><Icon name="check" size={18} /></span></div>
                 <div><span>{t('delivery.region')}</span><span className="tick"><Icon name="check" size={18} /></span></div>
                 <div><span>{t('delivery.pickup')}</span><span className="tick"><Icon name="check" size={18} /></span></div>

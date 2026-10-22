@@ -12,6 +12,7 @@ import { playChime, unlockSound } from './admin/sound'
 import AdminOrders from './admin/AdminOrders'
 import AdminProducts from './admin/AdminProducts'
 import { AdminCustomers, AdminMessages, AdminSubscribers } from './admin/AdminInbox'
+import { AdminDiscounts, AdminSettings } from './admin/AdminShop'
 
 const POLL_MS = 15_000
 const TABS = [
@@ -20,6 +21,8 @@ const TABS = [
   ['messages', 'tabMessages', 'inbox'],
   ['customers', 'tabCustomers', 'users'],
   ['subscribers', 'tabSubscribers', 'mail'],
+  ['discounts', 'tabDiscounts', 'percent'],
+  ['settings', 'tabSettings', 'settings'],
 ]
 
 function LoginForm({ L, onDone }) {
@@ -201,6 +204,8 @@ export default function Admin() {
             {tab === 'messages' && <AdminMessages L={L} call={call} onChanged={loadSummary} />}
             {tab === 'customers' && <AdminCustomers L={L} call={call} />}
             {tab === 'subscribers' && <AdminSubscribers L={L} call={call} />}
+            {tab === 'discounts' && <AdminDiscounts L={L} call={call} />}
+            {tab === 'settings' && <AdminSettings L={L} call={call} />}
           </div>
         </div>
       </section>

@@ -68,6 +68,14 @@ export const saveProduct = (payload, id = null) => async (dispatch) => {
   return data.product
 }
 
+// Copy of a flower (server copies the photos too); then the fresh list, since
+// the copy is placed right after the original.
+export const duplicateProduct = (id) => async (dispatch) => {
+  const data = await api(`/api/admin/products/${id}/duplicate`, { method: 'POST' })
+  await dispatch(fetchProducts())
+  return data.product
+}
+
 export const deleteProducts = (ids) => async (dispatch) => {
   const data = await api('/api/admin/products/delete', { method: 'POST', body: { ids } })
   dispatch(productsDeleted(data.deleted))

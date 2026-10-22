@@ -34,10 +34,9 @@ export const config = {
   googleClientId: (env.GOOGLE_CLIENT_ID || '').trim() || null,
 }
 
-// Shop rules. Keep in sync with src/store/cartSlice.js (FREE_FROM, DELIVERY_PRICE).
+// Shop rules. Delivery prices and the like are in the admin's Settings tab
+// (settings table, see src/settings.js).
 export const SHOP = {
-  freeDeliveryFrom: 200,
-  deliveryPrice: 25,
   maxQty: 99,
   maxOrderLines: 50,
   maxPhotos: 8,

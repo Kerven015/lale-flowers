@@ -67,6 +67,7 @@ export default function Track() {
               {result.items.map((i, k) => (
                 <div className="summary-row" key={k}><span>{lineName(i, lang)} × {i.qty}</span><span>{formatPrice(i.price * i.qty)}</span></div>
               ))}
+              {result.discount > 0 && <div className="summary-row discount-row"><span>{t('disc.saved')}</span><span>−{formatPrice(result.discount)}</span></div>}
               <div className="summary-row"><span>{t('cart.delivery')}</span><span>{result.deliveryFee === 0 ? t('cart.free') : formatPrice(result.deliveryFee)}</span></div>
               <div className="summary-row total"><span>{t('cart.grand')}</span><span>{formatPrice(result.total)}</span></div>
             </div>
