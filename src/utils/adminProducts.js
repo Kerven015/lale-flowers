@@ -20,6 +20,16 @@ export function validateForm(form, opts = {}) {
     const old = Number(form.old)
     if (!Number.isFinite(old) || old <= price) errors.old = 'old'
   }
+  const optional = (field, min, max, whole = true) => {
+    const v = String(form[field] ?? '').trim()
+    if (v === '') return
+    const n = Number(v)
+    if (!Number.isFinite(n) || n < min || n > max || (whole && !Number.isInteger(n))) errors[field] = field
+  }
+  optional('stock', 0, 100000)
+  optional('sortOrder', 0, 1000000)
+  optional('rating', 0, 5, false)
+  optional('reviews', 0, 10000000)
   if (!(form.images || []).length && !opts.editing) errors.image = 'image'
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true }
 }

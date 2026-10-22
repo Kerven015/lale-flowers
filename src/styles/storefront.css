@@ -1348,3 +1348,21 @@ main { animation-fill-mode: backwards; }
 
 /* "Sign in to add to your basket" note on the sign-in / register pages */
 .auth-notice { margin: -12px 0 20px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-alt); font-size: .88rem; line-height: 1.45; text-align: center; }
+
+/* "Only 3 left" (cards, product page, basket) */
+.stock-left { display: block; margin: 2px 0 6px; color: var(--red); font-size: .8rem; font-weight: 700; }
+.pv-actions + .stock-left, p.stock-left { margin: 4px 0 12px; font-size: .9rem; }
+
+/* checkout: discount code */
+.discount-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.discount-box label { display: block; font-weight: 700; font-size: .88rem; margin-bottom: 8px; }
+.discount-input { display: flex; gap: 8px; }
+.discount-input .field { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .04em; }
+.discount-input .btn { flex: none; }
+.discount-row span:last-child { color: var(--red); font-weight: 700; }
+.link-btn { margin-top: 8px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+
+/* checkout: delivery day + time slot */
+.when-picker { display: grid; gap: 14px; margin-top: 16px; }
+.when-label { display: block; font-weight: 700; font-size: .88rem; margin-bottom: 8px; }
+.when-picker .chip:disabled { opacity: .45; text-decoration: line-through; cursor: not-allowed; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { CLIENT_ID, browser, config, forger, idToken, newSub, pool, resetDatabase, startServer } from './helpers.js'
+import { CLIENT_ID, browser, config, dropSchema, forger, idToken, newSub, pool, resetDatabase, startServer } from './helpers.js'
 import { hashPassword } from '../src/security.js'
 
 let server
@@ -10,6 +10,7 @@ before(async () => {
 })
 after(async () => {
   await server?.close()
+  await dropSchema()
   await pool.end()
 })
 

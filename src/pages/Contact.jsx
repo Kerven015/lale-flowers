@@ -5,11 +5,13 @@ import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import Icon from '../components/Icons'
 import FormField from '../components/FormField'
+import { useSettings } from '../store/hooks'
 import { checkFields, clearError, focusFirstError, keysFromServer } from '../utils/formCheck'
 
 export default function Contact() {
   const { t } = useI18n()
   const { toast } = useToast()
+  const { phone, email, addressText, hoursText } = useSettings()
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState({}) // field -> translation key
 
@@ -46,10 +48,10 @@ export default function Contact() {
       <section className="section">
         <div className="container">
           <div className="info-grid" style={{ marginBottom: 50 }}>
-            <div className="info-card"><span className="ic"><Icon name="phone" size={24} /></span><h3>{t('contact.phone')}</h3><p><a href="tel:+99312000000">+993 12 000 000</a></p></div>
-            <div className="info-card"><span className="ic"><Icon name="mail" size={24} /></span><h3>{t('contact.email')}</h3><p><a href="mailto:info@lalegulleri.com">info@lalegulleri.com</a></p></div>
-            <div className="info-card"><span className="ic"><Icon name="pin" size={24} /></span><h3>{t('contact.address')}</h3><p>{t('contact.addressValue')}</p></div>
-            <div className="info-card"><span className="ic"><Icon name="clock" size={24} /></span><h3>{t('contact.hours')}</h3><p>{t('contact.hoursValue')}</p></div>
+            {phone && <div className="info-card"><span className="ic"><Icon name="phone" size={24} /></span><h3>{t('contact.phone')}</h3><p><a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>{phone}</a></p></div>}
+            {email && <div className="info-card"><span className="ic"><Icon name="mail" size={24} /></span><h3>{t('contact.email')}</h3><p><a href={`mailto:${email}`}>{email}</a></p></div>}
+            <div className="info-card"><span className="ic"><Icon name="pin" size={24} /></span><h3>{t('contact.address')}</h3><p>{addressText}</p></div>
+            <div className="info-card"><span className="ic"><Icon name="clock" size={24} /></span><h3>{t('contact.hours')}</h3><p>{hoursText}</p></div>
           </div>
           <div className="grid-2">
             <div className="summary" style={{ position: 'static' }}>

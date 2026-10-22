@@ -12,14 +12,21 @@ import { playChime, unlockSound } from './admin/sound'
 import AdminOrders from './admin/AdminOrders'
 import AdminProducts from './admin/AdminProducts'
 import { AdminCustomers, AdminMessages, AdminSubscribers } from './admin/AdminInbox'
+import { AdminDiscounts, AdminSettings } from './admin/AdminShop'
+import AdminDashboard from './admin/AdminDashboard'
+import AdminLog from './admin/AdminLog'
 
 const POLL_MS = 15_000
 const TABS = [
+  ['dashboard', 'tabDashboard', 'grid'],
   ['orders', 'tabOrders', 'orders'],
   ['products', 'tabProducts', 'flower'],
   ['messages', 'tabMessages', 'inbox'],
   ['customers', 'tabCustomers', 'users'],
   ['subscribers', 'tabSubscribers', 'mail'],
+  ['discounts', 'tabDiscounts', 'percent'],
+  ['settings', 'tabSettings', 'settings'],
+  ['log', 'tabLog', 'list'],
 ]
 
 function LoginForm({ L, onDone }) {
@@ -74,7 +81,7 @@ export default function Admin() {
   const [auth, setAuth] = useState('checking') // checking | out | in
   const [admin, setAdmin] = useState(null)
   const [tab, setTab] = useState(() => {
-    try { return sessionStorage.getItem('lale_admin_tab') || 'orders' } catch { return 'orders' }
+    try { return sessionStorage.getItem('lale_admin_tab') || 'dashboard' } catch { return 'dashboard' }
   })
   const [summary, setSummary] = useState(null)
   const [ordersVersion, setOrdersVersion] = useState(0)
@@ -155,7 +162,7 @@ export default function Admin() {
     return <LoginForm L={L} onDone={(a) => { setAdmin(a); setAuth('in') }} />
   }
 
-  const badge = (key) => (key === 'orders' ? summary?.newOrders : key === 'messages' ? summary?.unreadMessages : 0)
+  const badge = (key) => (key === 'orders' ? summary?.newOrders : key === 'messages' ? summary?.unreadMessages : key === 'products' ? summary?.lowStock : 0)
 
   return (
     <>
@@ -196,11 +203,15 @@ export default function Admin() {
           </div>
 
           <div role="tabpanel">
+            {tab === 'dashboard' && <AdminDashboard L={L} call={call} onOpenTab={pickTab} />}
             {tab === 'orders' && <AdminOrders L={L} call={call} summary={summary} version={ordersVersion} onChanged={loadSummary} />}
             {tab === 'products' && <AdminProducts L={L} onSessionLost={sessionLost} />}
             {tab === 'messages' && <AdminMessages L={L} call={call} onChanged={loadSummary} />}
             {tab === 'customers' && <AdminCustomers L={L} call={call} />}
             {tab === 'subscribers' && <AdminSubscribers L={L} call={call} />}
+            {tab === 'discounts' && <AdminDiscounts L={L} call={call} />}
+            {tab === 'settings' && <AdminSettings L={L} call={call} />}
+            {tab === 'log' && <AdminLog L={L} call={call} />}
           </div>
         </div>
       </section>

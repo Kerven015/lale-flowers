@@ -50,7 +50,10 @@ function MyOrders() {
           </div>
           <div className="my-order-items muted">{o.items.map((i) => `${lineName(i, lang)} × ${i.qty}`).join(', ')}</div>
           <div className="my-order-bottom">
-            <span className="muted">{orderDate(o.createdAt, lang)}</span>
+            <span className="muted">
+              {orderDate(o.createdAt, lang)}
+              {o.deliveryDate && ` · ${t('when.title')}: ${new Date(`${o.deliveryDate}T00:00:00Z`).toLocaleDateString(lang === 'tm' ? 'tk' : lang, { day: 'numeric', month: 'short', timeZone: 'UTC' })} ${o.deliverySlot}`}
+            </span>
             <span className="cr-price">{formatPrice(o.total)}</span>
           </div>
         </Link>

@@ -10,27 +10,97 @@ import { useMagnetic } from '../motion/motion'
 import RollingNumber from '../motion/RollingNumber'
 import { api, errorMessage } from '../api'
 import { checkFields, keysFromServer } from '../utils/formCheck'
-import { useAuth, useCart, useProducts } from '../store/hooks'
+import { useAuth, useCart, useProducts, useSettings } from '../store/hooks'
+import { fill } from '../utils/productHelpers'
+
+// why a discount code was refused -> message key
+const CODE_ERRORS = {
+  not_found: 'disc.notFound', expired: 'disc.expired', not_started: 'disc.notStarted', used_up: 'disc.usedUp',
+  min_total: 'disc.minTotal', first_order: 'disc.firstOrder', login: 'disc.login',
+}
 
 // form input name -> field name used by the server
 const FIELDS = { coFirst: 'first', coLast: 'last', coPhone: 'phone', coEmail: 'email', coCity: 'city', coAddress: 'address', coNotes: 'notes' }
 
 export default function Checkout() {
   const { t, lang } = useI18n()
-  const { orderable: cart, soldOut, subtotal, delivery, clear, remove } = useCart()
+  const { orderable: cart, soldOut, subtotal, delivery, clear, remove, setQty } = useCart()
+  const { ordersOpen } = useSettings()
   const { city } = useDelivery()
   const { get, name, loading, reload } = useProducts()
   const { user } = useAuth()
   const { toast } = useToast()
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [payment, setPayment] = useState('card')
+  // delivery time: as soon as possible, or a chosen day + time slot
+  const [calendar, setCalendar] = useState(null) // { enabled, days: [{ date, slots: [{ slot, open }] }] }
+  const [when, setWhen] = useState('asap')
+  const [day, setDay] = useState('')
+  const [slot, setSlot] = useState('')
+  const [card, setCard] = useState('') // greeting card text
+  const loadCalendar = async () => {
+    try { setCalendar(await api('/api/delivery/slots')) } catch { setCalendar(null) }
+  }
+  useEffect(() => { loadCalendar() }, [])
+  const dayInfo = calendar?.days?.find((d) => d.date === day)
   const [order, setOrder] = useState(null) // the placed order (from the server)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState({}) // server field name -> translation key
   const placeRef = useRef(null)
+  // Discount code: typed -> "Apply" checks it with the server.
+  const [codeInput, setCodeInput] = useState('')
+  const [code, setCode] = useState('') // the applied code
+  const [codeError, setCodeError] = useState('')
+  // The server's price for this basket (delivery, code, first-order discount).
+  const [quote, setQuote] = useState(null)
+  const basketKey = cart.map((i) => `${i.id}x${i.qty}`).join(',')
+  useEffect(() => {
+    if (!cart.length) { setQuote(null); return undefined }
+    const ctrl = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const data = await api('/api/orders/quote', {
+          method: 'POST', signal: ctrl.signal,
+          body: { items: cart.map((i) => ({ id: i.id, qty: i.qty })), deliveryType, discountCode: code },
+        })
+        setQuote(data.quote)
+      } catch (err) {
+        if (err?.name === 'AbortError') return
+        const why = err.data?.fields?.discountCode
+        if (why) { // the code stopped working (e.g. basket now below its minimum)
+          setCode('')
+          setCodeError(fill(t(CODE_ERRORS[why] || 'disc.notFound'), { min: err.data?.minTotal ?? '' }))
+        } else {
+          setQuote(null) // offline etc.: show the shop's own estimate
+        }
+      }
+    }, 250)
+    return () => { clearTimeout(timer); ctrl.abort() }
+  }, [basketKey, deliveryType, code, user?.id]) // basketKey stands for the basket contents
+
+  async function applyCode() {
+    const c = codeInput.trim()
+    setCodeError('')
+    if (!c) { setCode(''); return }
+    try {
+      const data = await api('/api/orders/quote', {
+        method: 'POST',
+        body: { items: cart.map((i) => ({ id: i.id, qty: i.qty })), deliveryType, discountCode: c },
+      })
+      setQuote(data.quote)
+      setCode(c)
+      if (data.quote.discountSource !== 'code') setCodeError(t('disc.notBetter'))
+      else toast(t('disc.applied'))
+    } catch (err) {
+      const why = err.data?.fields?.discountCode
+      setCodeError(why ? fill(t(CODE_ERRORS[why] || 'disc.notFound'), { min: err.data?.minTotal ?? '' }) : errorMessage(t, err))
+    }
+  }
+
   // Picking up from the shop is free (see the Delivery page).
-  const fee = deliveryType === 'pickup' ? 0 : delivery
-  const grand = subtotal + fee
+  const fee = quote ? quote.deliveryFee : deliveryType === 'pickup' ? 0 : delivery
+  const discount = quote?.discount || 0
+  const grand = quote ? quote.total : subtotal + fee
   useMagnetic(placeRef, undefined, [order, cart.length])
 
   // "Order placed" window: keyboard focus goes into it, Esc closes it
@@ -47,6 +117,12 @@ export default function Checkout() {
     e.preventDefault()
     if (busy) return
     if (!cart.length) { toast(t('checkout.emptyCart'), 'error'); return }
+    if (!ordersOpen) { toast(t('checkout.closed'), 'error'); return }
+    if (when === 'scheduled' && (!day || !slot)) {
+      setErrors({ deliverySlot: 'when.pick' })
+      toast(t('when.pick'), 'error')
+      return
+    }
     const form = e.target
     const value = (n) => (form[n] ? form[n].value.trim() : '')
 
@@ -75,6 +151,10 @@ export default function Checkout() {
           deliveryType,
           payment,
           lang,
+          discountCode: code,
+          deliveryDate: when === 'scheduled' ? day : '',
+          deliverySlot: when === 'scheduled' ? slot : '',
+          cardMessage: card.trim(),
         },
       })
       // ordered flowers leave the basket; sold-out ones (not ordered) stay
@@ -88,7 +168,23 @@ export default function Checkout() {
         focusFirst(form, fe)
       }
       if (err.code === 'unavailable') reload() // sold-out / removed flowers drop out of the basket
-      toast(errorMessage(t, err), 'error')
+      if (err.code === 'slot_full' || err.data?.fields?.deliverySlot || err.data?.fields?.deliveryDate) {
+        // the chosen time is taken / no longer possible: fresh choices
+        setSlot('')
+        setErrors((er) => ({ ...er, deliverySlot: err.code === 'slot_full' ? 'when.full' : 'when.gone' }))
+        loadCalendar()
+      }
+      if (err.code === 'not_enough_stock') {
+        // fewer left than in the basket: the basket shrinks to what is left
+        for (const it of err.data?.items || []) if (it.left > 0) setQty(it.id, it.left)
+        reload()
+      }
+      const why = err.data?.fields?.discountCode
+      if (why) { setCode(''); setCodeError(fill(t(CODE_ERRORS[why] || 'disc.notFound'), { min: err.data?.minTotal ?? '' })) }
+      toast(err.code === 'not_enough_stock' ? t('stock.notEnough')
+        : err.code === 'slot_full' ? t('when.full')
+        : err.data?.fields?.deliverySlot || err.data?.fields?.deliveryDate ? t('when.gone')
+        : errorMessage(t, err), 'error')
     } finally {
       setBusy(false)
     }
@@ -174,6 +270,59 @@ export default function Checkout() {
                 {input('coNotes', t('checkout.notes'), { full: true, textarea: true })}
               </div>
 
+              {calendar?.enabled && calendar.days.length > 0 && (
+                <>
+                  <h3 style={{ marginTop: 30 }}>{t('when.title')}</h3>
+                  <div className="form-grid">
+                    <label className={`radio-card${when === 'asap' ? ' active' : ''}`}>
+                      <input type="radio" name="when" checked={when === 'asap'} onChange={() => setWhen('asap')} />
+                      <div><div className="rc-title with-ico"><Icon name="zap" size={18} />{t('when.asap')}</div><div className="rc-sub">{t('when.asapSub')}</div></div>
+                    </label>
+                    <label className={`radio-card${when === 'scheduled' ? ' active' : ''}`}>
+                      <input type="radio" name="when" checked={when === 'scheduled'} onChange={() => { setWhen('scheduled'); if (!day) setDay(calendar.days[0].date) }} />
+                      <div><div className="rc-title with-ico"><Icon name="clock" size={18} />{t('when.pickTitle')}</div><div className="rc-sub">{t('when.pickSub')}</div></div>
+                    </label>
+                  </div>
+                  {when === 'scheduled' && (
+                    <div className="when-picker">
+                      <div className="form-field">
+                        <label htmlFor="coDay">{t('when.day')}</label>
+                        <select id="coDay" className="field" value={day} onChange={(e) => { setDay(e.target.value); setSlot(''); setErrors((er) => ({ ...er, deliverySlot: undefined })) }}>
+                          {calendar.days.map((d) => (
+                            <option key={d.date} value={d.date}>
+                              {new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === 'tm' ? 'tk' : lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <span className="when-label" id="coSlot-label">{t('when.slot')}</span>
+                        <div className="chips" role="radiogroup" aria-labelledby="coSlot-label">
+                          {(dayInfo?.slots || []).map((s) => (
+                            <button
+                              key={s.slot} type="button" role="radio" aria-checked={slot === s.slot} disabled={!s.open}
+                              className={`chip${slot === s.slot ? ' active' : ''}`}
+                              title={s.open ? undefined : t('when.slotTaken')}
+                              onClick={() => { setSlot(s.slot); setErrors((er) => ({ ...er, deliverySlot: undefined })) }}
+                            >
+                              {s.slot}
+                            </button>
+                          ))}
+                        </div>
+                        {errors.deliverySlot && <small className="field-error" role="alert">{t(errors.deliverySlot)}</small>}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <h3 style={{ marginTop: 30 }}>{t('gift.title')}</h3>
+              <div className="form-field full">
+                <label htmlFor="coCard">{t('gift.label')}</label>
+                <textarea id="coCard" className="field" rows={3} maxLength={300} placeholder={t('gift.ph')} value={card} onChange={(e) => setCard(e.target.value)} />
+                <small className="muted">{card.length}/300 · {t('gift.hint')}</small>
+              </div>
+
               <h3 style={{ marginTop: 30 }}>{t('checkout.payment')}</h3>
               <div className="form-grid">
                 <label className={`radio-card${payment === 'card' ? ' active' : ''}`}>
@@ -185,7 +334,8 @@ export default function Checkout() {
                   <div><div className="rc-title with-ico"><Icon name="cash" size={18} />{t('checkout.cash')}</div><div className="rc-sub">{t('checkout.cashSub')}</div></div>
                 </label>
               </div>
-              <button ref={placeRef} className="btn btn-primary btn-block btn-lg" type="submit" style={{ marginTop: 28 }} disabled={busy || !cart.length} aria-busy={busy}>
+              {!ordersOpen && <p className="form-error" role="alert" style={{ marginTop: 24 }}>{t('checkout.closed')}</p>}
+              <button ref={placeRef} className="btn btn-primary btn-block btn-lg" type="submit" style={{ marginTop: 28 }} disabled={busy || !cart.length || !ordersOpen} aria-busy={busy}>
                 {busy ? t('form.sending') : t('checkout.place')}
               </button>
             </form>
@@ -206,8 +356,37 @@ export default function Checkout() {
                     )
                   })}
                   <div className="summary-row total"><span>{t('cart.subtotal')}</span><span><RollingNumber value={subtotal} suffix=" TMT" /></span></div>
+                  {discount > 0 && (
+                    <div className="summary-row discount-row">
+                      <span>{quote.discountSource === 'code' ? fill(t('disc.rowCode'), { code: quote.discountCode }) : fill(t('disc.rowFirst'), { n: quote.firstOrderPercent })}</span>
+                      <span>−{formatPrice(discount)}</span>
+                    </div>
+                  )}
                   <div className="summary-row"><span>{t('cart.delivery')}</span><span>{fee === 0 ? t('cart.free') : formatPrice(fee)}</span></div>
                   <div className="summary-row total"><span>{t('cart.grand')}</span><span><RollingNumber value={grand} suffix=" TMT" /></span></div>
+                  <div className="discount-box">
+                    <label htmlFor="coCode">{t('disc.label')}</label>
+                    <div className="discount-input">
+                      <input
+                        id="coCode"
+                        className={`field${codeError ? ' is-invalid' : ''}`}
+                        value={codeInput}
+                        maxLength={30}
+                        autoComplete="off"
+                        autoCapitalize="characters"
+                        placeholder="SPRING10"
+                        aria-invalid={!!codeError}
+                        aria-describedby={codeError ? 'coCode-err' : undefined}
+                        onChange={(e) => { setCodeInput(e.target.value); setCodeError('') }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCode() } }}
+                      />
+                      <button type="button" className="btn btn-outline" onClick={applyCode}>{t('disc.apply')}</button>
+                    </div>
+                    {codeError && <small id="coCode-err" className="field-error" role="alert">{codeError}</small>}
+                    {code && !codeError && quote?.discountSource === 'code' && (
+                      <button type="button" className="link-btn" onClick={() => { setCode(''); setCodeInput('') }}>{t('disc.remove')}</button>
+                    )}
+                  </div>
                 </>
               )}
             </aside>
@@ -224,6 +403,7 @@ export default function Checkout() {
           {order && (
             <>
               <p><strong>{t('checkout.orderNo')}</strong>: <span className="order-code">{order.code}</span></p>
+              {order.discount > 0 && <p><strong>{t('disc.saved')}</strong>: {formatPrice(order.discount)}</p>}
               <p><strong>{t('cart.grand')}</strong>: {formatPrice(order.total)}</p>
             </>
           )}

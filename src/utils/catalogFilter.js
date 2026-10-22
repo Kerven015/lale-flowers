@@ -74,7 +74,9 @@ export function sortProducts(list, sort) {
   // "New" flowers first, then the most recently added (higher id = added later)
   else if (sort === 'newest') out.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || b.id - a.id)
   else if (sort === 'popular') out.sort((a, b) => (b.reviews || 0) - (a.reviews || 0))
-  return out // 'recommended' = default order
+  // 'recommended' = featured flowers (admin's choice) first, then the admin's order
+  else out.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
+  return out
 }
 
 export function filtersFromParams(params, presetCat = '') {

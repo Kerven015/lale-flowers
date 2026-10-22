@@ -64,9 +64,13 @@ export default function Track() {
               <StatusSteps status={result.status} />
               <div className="summary-row"><span>{t('profile.orderDate')}</span><span>{orderDate(result.createdAt, lang)}</span></div>
               <div className="summary-row"><span>{t('checkout.delivery')}</span><span>{t(result.deliveryType === 'pickup' ? 'checkout.pickup' : 'checkout.deliveryHome')}</span></div>
+              <div className="summary-row"><span>{t('when.title')}</span><span>{result.deliveryDate
+                ? `${new Date(`${result.deliveryDate}T00:00:00Z`).toLocaleDateString(lang === 'tm' ? 'tk' : lang, { day: 'numeric', month: 'long', timeZone: 'UTC' })}, ${result.deliverySlot}`
+                : t('when.asap')}</span></div>
               {result.items.map((i, k) => (
                 <div className="summary-row" key={k}><span>{lineName(i, lang)} × {i.qty}</span><span>{formatPrice(i.price * i.qty)}</span></div>
               ))}
+              {result.discount > 0 && <div className="summary-row discount-row"><span>{t('disc.saved')}</span><span>−{formatPrice(result.discount)}</span></div>}
               <div className="summary-row"><span>{t('cart.delivery')}</span><span>{result.deliveryFee === 0 ? t('cart.free') : formatPrice(result.deliveryFee)}</span></div>
               <div className="summary-row total"><span>{t('cart.grand')}</span><span>{formatPrice(result.total)}</span></div>
             </div>

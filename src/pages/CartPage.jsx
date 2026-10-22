@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import PageHead from '../components/PageHead'
 import { useI18n } from '../contexts/I18nContext'
-import { formatPrice, productImage } from '../utils/productHelpers'
+import { fewLeft, fill, formatPrice, productImage } from '../utils/productHelpers'
+import { maxQtyFor } from '../store/cartSlice'
 import Icon from '../components/Icons'
 import RollingNumber from '../motion/RollingNumber'
 import { useCart, useProducts } from '../store/hooks'
@@ -37,11 +38,12 @@ export default function CartPage() {
                     <div className="cr-info">
                       <div className="cr-name">{name(p)}</div>
                       <div className="cr-cat">{out ? <span className="out-stock">{t('prod.out')}</span> : typeName(p)}</div>
+                      {!out && fewLeft(p) && <div className="stock-left">{fill(t('stock.left'), { n: fewLeft(p) })}</div>}
                     </div>
                     <div className="qty">
                       <button type="button" aria-label={t('cart.less')} disabled={out} onClick={() => setQty(p.id, item.qty - 1)}>−</button>
-                      <input type="number" inputMode="numeric" value={item.qty} min="1" max="99" disabled={out} aria-label={t('cart.qty')} onChange={(e) => setQty(p.id, Math.max(1, +e.target.value || 1))} />
-                      <button type="button" aria-label={t('cart.more')} disabled={out || item.qty >= 99} onClick={() => setQty(p.id, item.qty + 1)}>+</button>
+                      <input type="number" inputMode="numeric" value={item.qty} min="1" max={maxQtyFor(p)} disabled={out} aria-label={t('cart.qty')} onChange={(e) => setQty(p.id, Math.max(1, +e.target.value || 1))} />
+                      <button type="button" aria-label={t('cart.more')} disabled={out || item.qty >= maxQtyFor(p)} onClick={() => setQty(p.id, item.qty + 1)}>+</button>
                     </div>
                     <div className="cr-price">{out ? '—' : formatPrice(p.price * item.qty)}</div>
                     <button className="remove" onClick={() => { remove(p.id); notify('notify.removed') }} aria-label={t('cart.remove')}><Icon name="close" size={16} /></button>

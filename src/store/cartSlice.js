@@ -4,13 +4,17 @@ import { createSelector, createSlice } from '@reduxjs/toolkit'
 import { readJSON } from '../utils/storage'
 import { selectProductById, selectProducts } from './productsSlice'
 import { selectUser } from './authSlice'
+import { selectSettings } from './settingsSlice'
 
 export const CART_KEY = 'lale_cart'
 export const FAV_KEY = 'lale_favorites'
-// Must match server/src/config.js (SHOP). The server's numbers count for orders.
-export const FREE_FROM = 200
-export const DELIVERY_PRICE = 25
+// Delivery prices come from the shop settings (admin's Settings tab).
 export const MAX_QTY = 99
+
+// How many of a flower one basket can hold: the flowers left when they are
+// counted (product.stock), never more than MAX_QTY.
+export const maxQtyFor = (product) =>
+  product && product.stock !== null && product.stock !== undefined ? Math.max(0, Math.min(MAX_QTY, product.stock)) : MAX_QTY
 
 function loadCart() {
   const list = readJSON(CART_KEY, [])
@@ -92,6 +96,7 @@ export const hasPendingAdd = () => !!readPending()
 // What a basket button should do. Returns
 //   true     -> added
 //   false    -> nothing could be added (sold out)
+//   'max'    -> the basket already holds every flower that is left
 //   'signin' -> a guest: remembered, the page must open registration
 // back = page to return to after signing in.
 export const requestAdd = (items, back) => (dispatch, getState) => {
@@ -103,8 +108,15 @@ export const requestAdd = (items, back) => (dispatch, getState) => {
     savePending(valid, back)
     return 'signin'
   }
-  for (const { id, qty } of valid) dispatch(added({ id, qty }))
-  return true
+  let any = false
+  for (const { id, qty } of valid) {
+    const inBasket = getState().cart.items.find((i) => i.id === id)?.qty || 0
+    const room = maxQtyFor(selectProductById(getState(), id)) - inBasket
+    if (room <= 0) continue
+    dispatch(added({ id, qty: Math.min(qty, room) }))
+    any = true
+  }
+  return any ? true : 'max'
 }
 
 // After signing in / registering: put the remembered flowers into the basket.
@@ -117,10 +129,23 @@ export const applyPendingAdd = () => (dispatch, getState) => {
   return { back: typeof p.back === 'string' && p.back.startsWith('/') && !p.back.startsWith('//') ? p.back : '/cart', added: result === true }
 }
 
-export const setQty = (id, qty) => (dispatch) => {
+export const setQty = (id, qty) => (dispatch, getState) => {
   qty = parseInt(qty, 10)
   if (Number.isNaN(qty)) return
-  dispatch(qtySet({ id: parseInt(id, 10), qty }))
+  id = parseInt(id, 10)
+  const max = maxQtyFor(selectProductById(getState(), id))
+  dispatch(qtySet({ id, qty: qty > 0 ? Math.min(qty, Math.max(1, max)) : qty }))
+}
+
+// After the flower list changes: no basket line holds more than is left.
+// (Lines of sold-out flowers stay, marked "sold out".)
+export const fitCartToStock = () => (dispatch, getState) => {
+  for (const item of getState().cart.items) {
+    const p = selectProductById(getState(), item.id)
+    if (!p || !p.inStock) continue
+    const max = maxQtyFor(p)
+    if (max > 0 && item.qty > max) dispatch(qtySet({ id: item.id, qty: max }))
+  }
 }
 
 export const removeFromCart = (id) => removed(parseInt(id, 10))
@@ -151,9 +176,10 @@ export const selectFavorites = createSelector([selectFavIds, selectById], (ids, 
 export const selectOrderable = createSelector([selectCart, selectById], (cart, byId) => cart.filter((i) => byId.get(i.id).inStock))
 export const selectSoldOutIds = createSelector([selectCart, selectById], (cart, byId) => cart.filter((i) => !byId.get(i.id).inStock).map((i) => i.id))
 
-export const selectTotals = createSelector([selectCart, selectOrderable, selectById], (cart, orderable, byId) => {
+// The shop's estimate; at checkout the server's quote (discounts) counts.
+export const selectTotals = createSelector([selectCart, selectOrderable, selectById, selectSettings], (cart, orderable, byId, settings) => {
   const count = cart.reduce((s, i) => s + i.qty, 0)
   const subtotal = orderable.reduce((s, i) => s + byId.get(i.id).price * i.qty, 0)
-  const delivery = subtotal === 0 || subtotal >= FREE_FROM ? 0 : DELIVERY_PRICE
+  const delivery = subtotal === 0 || subtotal >= settings.freeDeliveryFrom ? 0 : settings.deliveryPrice
   return { count, subtotal, delivery, total: subtotal + delivery }
 })

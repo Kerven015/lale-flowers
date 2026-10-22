@@ -6,11 +6,14 @@ import { isUploadFileName } from './uploads.js'
 import * as shop from './routes/shop.js'
 import * as account from './routes/account.js'
 import * as admin from './routes/admin.js'
+import * as adminInsights from './routes/adminInsights.js'
 
-const router = new Router()
+// exported for the tests (they check every admin route needs the admin login)
+export const router = new Router()
 shop.register(router)
 account.register(router)
 admin.register(router)
+adminInsights.register(router)
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 

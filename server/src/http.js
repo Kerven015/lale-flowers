@@ -84,7 +84,7 @@ export class Router {
   add(method, pattern, ...handlers) {
     const keys = []
     const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)' }) + '/?$')
-    this.routes.push({ method, re, keys, handlers })
+    this.routes.push({ method, pattern, re, keys, handlers })
     return this
   }
   get(p, ...h) { return this.add('GET', p, ...h) }

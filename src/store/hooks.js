@@ -10,12 +10,13 @@ import { useToast } from '../contexts/ToastContext'
 import { productDesc, productImage, productName } from '../utils/productHelpers'
 import { OTHER_TYPE, customTypes, isCustomTypeKey } from '../utils/productTypes'
 import {
-  deleteProducts, fetchProducts, retrying, saveProduct, selectProducts, selectProductsStatus,
+  deleteProducts, duplicateProduct, fetchProducts, retrying, saveProduct, selectProducts, selectProductsStatus,
 } from './productsSlice'
 import {
-  DELIVERY_PRICE, FREE_FROM, clearCart, removeFromCart, requestAdd, selectCart,
+  clearCart, removeFromCart, requestAdd, selectCart,
   selectFavorites, selectOrderable, selectSoldOutIds, selectTotals, setQty, toggleFavorite,
 } from './cartSlice'
+import { selectSettings } from './settingsSlice'
 import {
   changeEmail, changePassword, googleLogin, login, logout, refreshUser, register, selectAuthReady, selectUser, updateProfile,
 } from './authSlice'
@@ -35,6 +36,7 @@ export function useProducts() {
   const retry = useCallback(() => { dispatch(retrying()); reload() }, [dispatch, reload])
   const save = useCallback((payload, id = null) => dispatch(saveProduct(payload, id)), [dispatch])
   const remove = useCallback((ids) => dispatch(deleteProducts(ids)), [dispatch])
+  const duplicate = useCallback((id) => dispatch(duplicateProduct(id)), [dispatch])
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const get = useCallback((id) => byId.get(parseInt(id, 10)) || null, [byId])
@@ -66,6 +68,7 @@ export function useProducts() {
     retry,
     saveProduct: save,
     deleteProducts: remove,
+    duplicateProduct: duplicate,
     categories: CATEGORIES,
     get,
     catName,
@@ -73,7 +76,7 @@ export function useProducts() {
     name,
     desc,
     image: productImage,
-  }), [products, status, reload, retry, save, remove, get, catName, typeName, name, desc])
+  }), [products, status, reload, retry, save, remove, duplicate, get, catName, typeName, name, desc])
 }
 
 // ---- basket + favourites ---------------------------------------------------
@@ -96,10 +99,11 @@ export function useCart() {
   // then = page to open after signing in (default: back to this page).
   const request = useCallback((items, then) => {
     const r = dispatch(requestAdd(items, then || pathname + search))
+    if (r === 'max') { toast(t('stock.allInBasket')); return false }
     if (r !== 'signin') return r
     navigate('/register') // the page says why (cart.signInToAdd)
     return null
-  }, [dispatch, navigate, pathname, search])
+  }, [dispatch, navigate, pathname, search, toast, t])
   const add = useCallback((id, qty, { then } = {}) => request([{ id, qty }], then), [request])
   const addMany = useCallback((ids) => request(ids.map((id) => ({ id, qty: 1 }))), [request])
   const changeQty = useCallback((id, qty) => dispatch(setQty(id, qty)), [dispatch])
@@ -126,10 +130,23 @@ export function useCart() {
     subtotal,
     delivery,
     total,
-    freeFrom: FREE_FROM,
-    deliveryPrice: DELIVERY_PRICE,
     notify,
   }), [cart, orderable, soldOut, favorites, add, addMany, changeQty, remove, clear, isFavorite, toggle, count, subtotal, delivery, total, notify])
+}
+
+// ---- shop settings -----------------------------------------------------------
+
+// Delivery prices, contacts, "orders open", first-order discount.
+// Texts (address, hours) for the current language, with the built-in
+// translation when the admin left them empty.
+export function useSettings() {
+  const s = useSelector(selectSettings)
+  const { lang, t } = useI18n()
+  return useMemo(() => ({
+    ...s,
+    addressText: s.address?.[lang] || t('contact.addressValue'),
+    hoursText: s.hours?.[lang] || t('contact.hoursValue'),
+  }), [s, lang, t])
 }
 
 // ---- customer login --------------------------------------------------------

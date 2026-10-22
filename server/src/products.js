@@ -5,6 +5,9 @@ import { LANGS } from './config.js'
 export const TYPES = ['roses', 'tulips', 'bouquets', 'gifts', 'plants', 'other']
 // Menu sections a product can be shown under (src/utils/productTypes.js)
 export const TAGS = ['birthday', 'love', 'roses', 'bouquets', 'gifts', 'wedding', 'congrats', 'thanks', 'home', 'tulips', 'plants']
+// Colour filter in the catalog (src/utils/catalogFilter.js COLOR_KEYS)
+export const COLORS = ['red', 'white', 'pink', 'yellow', 'purple', 'mixed']
+export const MAX_STOCK = 100_000
 
 const TYPE_TONES = {
   roses: ['#e01b24', '#7a0d13'],
@@ -16,7 +19,7 @@ const TYPE_TONES = {
 const DEFAULT_TONES = ['#e01b24', '#7a0d13']
 
 export const PRODUCT_COLUMNS = `id, slug, cat, custom_type, occasions, price, old_price, rating, reviews, colors,
-  is_new, in_stock, tones, images, i18n, sort_order`
+  is_new, is_featured, in_stock, stock, tones, images, i18n, sort_order`
 
 export function toProduct(row) {
   const images = Array.isArray(row.images) ? row.images : []
@@ -32,7 +35,10 @@ export function toProduct(row) {
     reviews: row.reviews,
     colors: row.colors || [],
     isNew: row.is_new,
+    featured: !!row.is_featured,
     inStock: row.in_stock,
+    stock: row.stock ?? null, // flowers left; null = not counted
+    sortOrder: row.sort_order,
     tones: row.tones?.length ? row.tones : DEFAULT_TONES,
     ...(images[0] ? { image: images[0] } : {}),
     images,
@@ -110,6 +116,19 @@ export function checkProductForm(body) {
     old = Number(body.old)
     if (!Number.isFinite(old) || old <= price || old > 1_000_000) errors.old = 'old'
   }
+  // optional numbers: '' / null / missing = not set
+  const optionalNumber = (field, min, max, { whole = true } = {}) => {
+    const v = body[field]
+    if (v === undefined || v === null || String(v).trim() === '') return null
+    const n = Number(v)
+    if (!Number.isFinite(n) || n < min || n > max || (whole && !Number.isInteger(n))) { errors[field] = field; return null }
+    return n
+  }
+  const stock = optionalNumber('stock', 0, MAX_STOCK)
+  const sortOrder = optionalNumber('sortOrder', 0, 1_000_000)
+  const rating = optionalNumber('rating', 0, 5, { whole: false })
+  const reviews = optionalNumber('reviews', 0, 10_000_000)
+  const colors = Array.isArray(body.colors) ? COLORS.filter((c) => body.colors.includes(c)) : []
   const lang = LANGS.includes(body.lang) ? body.lang : 'tm'
   const details = Object.fromEntries(LANGS.map((l) => {
     const d = body.details?.[l] || {}
@@ -121,7 +140,11 @@ export function checkProductForm(body) {
     data: {
       name, type, customType: type === 'other' ? customType : null, occasions,
       price: Math.round(price), old: old === null ? null : Math.round(old),
-      inStock: body.inStock !== false, lang, details,
+      // a counted flower is in stock while some are left
+      stock, inStock: stock === null ? body.inStock !== false : stock > 0,
+      isNew: body.isNew === true, featured: body.featured === true, sortOrder, colors,
+      rating: rating === null ? 0 : Math.round(rating * 10) / 10, reviews: reviews ?? 0,
+      lang, details,
     },
   }
 }
@@ -135,8 +158,14 @@ export function newProductFields(data) {
     occasions: data.occasions,
     price: data.price,
     old_price: data.old,
-    is_new: true,
+    is_new: data.isNew,
+    is_featured: data.featured,
     in_stock: data.inStock,
+    stock: data.stock,
+    sort_order: data.sortOrder, // null = after the last one
+    colors: data.colors,
+    rating: data.rating,
+    reviews: data.reviews,
     tones: TYPE_TONES[data.type] || DEFAULT_TONES,
     i18n: Object.fromEntries(LANGS.map((l) => [l, { name: data.name, ...data.details[l] }])),
   }
@@ -160,6 +189,13 @@ export function editedProductFields(row, data) {
     price: data.price,
     old_price: data.old,
     in_stock: data.inStock,
+    stock: data.stock,
+    is_new: data.isNew,
+    is_featured: data.featured,
+    sort_order: data.sortOrder ?? row.sort_order,
+    colors: data.colors,
+    rating: data.rating,
+    reviews: data.reviews,
     i18n,
   }
 }

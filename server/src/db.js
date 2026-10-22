@@ -1,6 +1,9 @@
 import pg from 'pg'
 import { config } from './config.js'
 
+// "date" columns (delivery day) stay plain 'YYYY-MM-DD' text: no time zone shifts.
+pg.types.setTypeParser(1082, (v) => v)
+
 export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 })
 
 pool.on('error', (err) => console.error('PostgreSQL connection error', err.message))
