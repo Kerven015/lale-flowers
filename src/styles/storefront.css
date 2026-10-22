@@ -1361,3 +1361,8 @@ main { animation-fill-mode: backwards; }
 .discount-input .btn { flex: none; }
 .discount-row span:last-child { color: var(--red); font-weight: 700; }
 .link-btn { margin-top: 8px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+
+/* checkout: delivery day + time slot */
+.when-picker { display: grid; gap: 14px; margin-top: 16px; }
+.when-label { display: block; font-weight: 700; font-size: .88rem; margin-bottom: 8px; }
+.when-picker .chip:disabled { opacity: .45; text-decoration: line-through; cursor: not-allowed; }

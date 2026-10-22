@@ -14,7 +14,17 @@ export const SHOP_DEFAULTS = {
   instagram: '',
   address: { tm: '', ru: '', tr: '' },
   hours: { tm: '', ru: '', tr: '' },
+  lowStockThreshold: 5,      // dashboard warns when a counted flower has this many or fewer
+  // Scheduled delivery: the customer may pick a day and a time slot.
+  scheduledDelivery: true,
+  deliverySlots: ['09:00–12:00', '12:00–15:00', '15:00–18:00', '18:00–21:00'],
+  deliveryDaysAhead: 14,     // how far ahead a day can be chosen (0 = today only)
+  slotCapacity: 0,           // orders per day + slot, 0 = no limit
 }
+
+// A slot is "HH:MM–HH:MM" (en dash or hyphen).
+export const SLOT_RE = /^([01]\d|2[0-3]):([0-5]\d)\s*[–-]\s*([01]\d|2[0-3]|24):([0-5]\d)$/
+export const slotStart = (slot) => { const m = SLOT_RE.exec(slot); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
 
 let cached = null
 
@@ -52,7 +62,16 @@ export function checkShopSettings(body) {
     instagram: clean(b.instagram, 300),
     address: Object.fromEntries(LANGS.map((l) => [l, clean(b.address?.[l], 200)])),
     hours: Object.fromEntries(LANGS.map((l) => [l, clean(b.hours?.[l], 200)])),
+    lowStockThreshold: wholeNumber(errors, b, 'lowStockThreshold', 0, 10_000),
+    scheduledDelivery: b.scheduledDelivery !== false,
+    deliverySlots: [],
+    deliveryDaysAhead: wholeNumber(errors, b, 'deliveryDaysAhead', 0, 90),
+    slotCapacity: wholeNumber(errors, b, 'slotCapacity', 0, 10_000),
   }
+  const slots = Array.isArray(b.deliverySlots) ? b.deliverySlots.map((s) => clean(s, 20).replace(/\s*[–-]\s*/, '–')).filter(Boolean) : null
+  if (!slots || slots.length > 12 || slots.some((s) => !SLOT_RE.test(s)) || new Set(slots).size !== slots.length) errors.deliverySlots = 'invalid'
+  else data.deliverySlots = slots
+  if (data.scheduledDelivery && !data.deliverySlots.length && !errors.deliverySlots) errors.deliverySlots = 'invalid'
   if (data.phone && !/^\+?[0-9][0-9\s\-()]{4,30}$/.test(data.phone)) errors.phone = 'invalid'
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email)) errors.email = 'invalid'
   // only real web links (no javascript: and the like)

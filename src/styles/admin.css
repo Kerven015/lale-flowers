@@ -332,3 +332,65 @@
 .dc-code-input { text-transform: uppercase; letter-spacing: .04em; }
 .adm-discount.is-off { opacity: .65; }
 .adm-discount .adm-customer-actions { flex-wrap: wrap; }
+
+/* ---- dashboard ---------------------------------------------------------------- */
+.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.dash-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 12px; }
+.dash-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); min-width: 0; }
+.dash-tile-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .8rem; font-weight: 700; }
+.dash-tile-value { font-size: 1.45rem; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dash-tile small { font-size: .78rem; }
+.dash-tile.is-attn { border-color: rgba(224, 27, 36, .45); }
+.dash-tile.is-warn .dash-tile-value { color: var(--red); }
+.dash-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.dash-custom, .dash-group { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600; }
+.dash-custom label { display: inline-flex; align-items: center; gap: 6px; }
+.dash-custom .field, .dash-group .field { width: auto; padding: 8px 10px; }
+.dash-card h3 { margin: 0 0 12px; }
+.dash-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.dash-card-head h3 { margin: 0; }
+.dash-chart { position: relative; }
+.dash-chart svg { display: block; width: 100%; height: 240px; overflow: visible; }
+.dash-grid { stroke: var(--border); stroke-width: 1; }
+.dash-baseline { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.dash-axis { fill: var(--muted); font-size: 11px; }
+.dash-bar { fill: var(--red); }
+.dash-bar.is-hover { opacity: .8; }
+.dash-chart rect:focus { outline: none; }
+.dash-chart rect:focus-visible { outline: 2px solid var(--red); }
+.dash-tip { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); font-size: .8rem; pointer-events: none; white-space: nowrap; }
+.dash-empty { padding: 30px 0; text-align: center; }
+.dash-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.dash-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.dash-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--border); font-size: .9rem; }
+.dash-list li:last-child { border-bottom: 0; }
+.dash-recent-side { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dash-out { color: var(--red); font-weight: 700; }
+.dash-table-wrap { overflow-x: auto; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.dash-table th, .dash-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.dash-table th { color: var(--muted); font-weight: 700; }
+.adm-log td small { display: block; }
+.adm-log tr.is-warn td { color: var(--red); }
+
+/* ---- orders: delivery time, card text, day filter ---------------------------------- */
+.adm-when { font-weight: 700; }
+.adm-card-msg { border-left-color: var(--red); }
+.adm-day-pick { width: auto; padding: 6px 10px; }
+
+/* ---- flower form: stock panel ---------------------------------------------------------- */
+.stock-panel { margin-bottom: 14px; }
+.stock-adjust { display: grid; grid-template-columns: minmax(120px, 1.2fr) minmax(80px, .6fr) minmax(120px, 1.4fr) auto; gap: 8px; }
+.stock-history { margin-top: 12px; font-size: .85rem; }
+.stock-history summary { cursor: pointer; font-weight: 700; }
+.stock-history ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+.stock-history li { display: grid; grid-template-columns: 52px 1fr; gap: 2px 8px; }
+.stock-history li .muted { grid-column: 2; font-size: .78rem; }
+.stock-history .neg { color: var(--red); font-weight: 700; }
+.stock-history .pos { font-weight: 700; }
+@media (max-width: 600px) { .stock-adjust { grid-template-columns: 1fr 1fr; } }
+
+/* ---- customers: order history ------------------------------------------------------------ */
+.adm-cus-orders { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.adm-cus-orders li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .85rem; }
+.adm-cus-order-side { display: inline-flex; align-items: center; gap: 10px; }

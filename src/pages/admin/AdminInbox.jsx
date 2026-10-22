@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '../../contexts/I18nContext'
 import { useToast } from '../../contexts/ToastContext'
-import { orderDate } from '../../components/OrderStatus'
+import { StatusPill, lineName, orderDate } from '../../components/OrderStatus'
+import { formatPrice } from '../../utils/productHelpers'
 import Icon from '../../components/Icons'
 
 // Loads a list from the server; returns [list, setList, state, reload]
@@ -120,6 +121,7 @@ export function AdminCustomers({ L, call }) {
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [shown, setShown] = useState(null) // { id, password }
+  const [history, setHistory] = useState({}) // customer id -> orders (or 'loading' / 'error')
   useEffect(() => {
     const id = setTimeout(() => setQuery(q.trim()), 350)
     return () => clearTimeout(id)
@@ -132,6 +134,15 @@ export function AdminCustomers({ L, call }) {
       const data = await call(`/api/admin/customers/${c.id}/password`, { method: 'POST' })
       setShown({ id: c.id, password: data.password })
     } catch { toast(L.loadFailed, 'error') }
+  }
+
+  async function toggleOrders(c) {
+    if (history[c.id]) { setHistory((h) => { const n = { ...h }; delete n[c.id]; return n }); return }
+    setHistory((h) => ({ ...h, [c.id]: 'loading' }))
+    try {
+      const data = await call(`/api/admin/customers/${c.id}/orders`)
+      setHistory((h) => ({ ...h, [c.id]: data.orders }))
+    } catch { setHistory((h) => ({ ...h, [c.id]: 'error' })) }
   }
 
   // Blocked customers cannot sign in (password or Google) and are logged out
@@ -169,6 +180,24 @@ export function AdminCustomers({ L, call }) {
             <a className="adm-order-link" href={`mailto:${c.email}`}><Icon name="mail" size={15} />{c.email}</a>
             {c.phone && <a className="adm-order-link" href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={15} />{c.phone}</a>}
             <small className="muted">{L.cusOrders.replace('{n}', c.orders)} · {L.cusSince.replace('{d}', orderDate(c.createdAt, lang))}</small>
+            {c.orders > 0 && (
+              <button type="button" className="link-btn" aria-expanded={!!history[c.id]} onClick={() => toggleOrders(c)}>
+                {history[c.id] ? L.cusHideOrders : L.cusShowOrders}
+              </button>
+            )}
+            {history[c.id] === 'loading' && <small className="muted">…</small>}
+            {history[c.id] === 'error' && <small className="field-error">{L.loadFailed}</small>}
+            {Array.isArray(history[c.id]) && (
+              <ul className="adm-cus-orders">
+                {history[c.id].map((o) => (
+                  <li key={o.id}>
+                    <span><strong className="order-code">{o.code}</strong> · {orderDate(o.createdAt, lang)}</span>
+                    <span className="muted">{o.items.map((i) => `${lineName(i, lang)} × ${i.qty}`).join(', ')}</span>
+                    <span className="adm-cus-order-side"><StatusPill status={o.status} /><strong>{formatPrice(o.total)}</strong></span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="adm-cus-tags" aria-label={L.cusSignIn}>
               {c.google && <span className="adm-cus-tag">Google</span>}
               {c.password && <span className="adm-cus-tag">{L.cusPassword}</span>}

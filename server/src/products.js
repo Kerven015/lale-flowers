@@ -19,7 +19,7 @@ const TYPE_TONES = {
 const DEFAULT_TONES = ['#e01b24', '#7a0d13']
 
 export const PRODUCT_COLUMNS = `id, slug, cat, custom_type, occasions, price, old_price, rating, reviews, colors,
-  is_new, in_stock, stock, tones, images, i18n, sort_order`
+  is_new, is_featured, in_stock, stock, tones, images, i18n, sort_order`
 
 export function toProduct(row) {
   const images = Array.isArray(row.images) ? row.images : []
@@ -35,6 +35,7 @@ export function toProduct(row) {
     reviews: row.reviews,
     colors: row.colors || [],
     isNew: row.is_new,
+    featured: !!row.is_featured,
     inStock: row.in_stock,
     stock: row.stock ?? null, // flowers left; null = not counted
     sortOrder: row.sort_order,
@@ -141,7 +142,7 @@ export function checkProductForm(body) {
       price: Math.round(price), old: old === null ? null : Math.round(old),
       // a counted flower is in stock while some are left
       stock, inStock: stock === null ? body.inStock !== false : stock > 0,
-      isNew: body.isNew === true, sortOrder, colors,
+      isNew: body.isNew === true, featured: body.featured === true, sortOrder, colors,
       rating: rating === null ? 0 : Math.round(rating * 10) / 10, reviews: reviews ?? 0,
       lang, details,
     },
@@ -158,6 +159,7 @@ export function newProductFields(data) {
     price: data.price,
     old_price: data.old,
     is_new: data.isNew,
+    is_featured: data.featured,
     in_stock: data.inStock,
     stock: data.stock,
     sort_order: data.sortOrder, // null = after the last one
@@ -189,6 +191,7 @@ export function editedProductFields(row, data) {
     in_stock: data.inStock,
     stock: data.stock,
     is_new: data.isNew,
+    is_featured: data.featured,
     sort_order: data.sortOrder ?? row.sort_order,
     colors: data.colors,
     rating: data.rating,

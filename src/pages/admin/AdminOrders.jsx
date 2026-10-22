@@ -19,6 +19,22 @@ const NEXT = { new: 'confirmed', confirmed: 'preparing', preparing: 'delivering'
 const STATUSES = ['new', 'confirmed', 'preparing', 'delivering', 'done', 'cancelled']
 const PAGE = 30
 
+// Same rules as the server (server/src/routes/admin.js canMove): forward only,
+// cancel before "done", a cancelled order comes back as "new", "done" is final.
+const FLOW = ['new', 'confirmed', 'preparing', 'delivering', 'done']
+export function canMove(from, to) {
+  if (from === to || from === 'done') return false
+  if (from === 'cancelled') return to === 'new'
+  if (to === 'cancelled') return true
+  return FLOW.indexOf(to) > FLOW.indexOf(from)
+}
+
+// shop day 'YYYY-MM-DD' (Ashgabat), and n days later
+const shopDay = (offset = 0) => {
+  const d = new Date(Date.now() + offset * 86400000)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ashgabat' }).format(d)
+}
+
 function OrderCard({ order, L, onChange }) {
   const { t, lang } = useI18n()
   const [busy, setBusy] = useState(false)
@@ -57,6 +73,12 @@ function OrderCard({ order, L, onChange }) {
             {order.deliveryType === 'pickup' ? L.ordPickup : L.ordDelivery}
           </div>
           {order.deliveryType === 'delivery' && <div className="adm-order-address">{[c.city, c.address].filter(Boolean).join(', ')}</div>}
+          <div className={`adm-order-line with-ico${order.deliveryDate ? ' adm-when' : ' muted'}`}>
+            <Icon name="clock" size={16} />
+            {order.deliveryDate
+              ? `${new Date(`${order.deliveryDate}T00:00:00Z`).toLocaleDateString(lang === 'tm' ? 'tk' : lang, { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' })} · ${order.deliverySlot}`
+              : L.ordAsap}
+          </div>
           <div className="adm-order-line with-ico muted">
             <Icon name={order.payment === 'card' ? 'card' : 'cash'} size={16} />
             {order.payment === 'card' ? L.ordPayCard : L.ordPayCash} · {L.ordLang}: {order.lang.toUpperCase()}
@@ -75,6 +97,9 @@ function OrderCard({ order, L, onChange }) {
         <li className="adm-order-total"><span>{L.ordTotal}</span><span>{formatPrice(order.total)}</span></li>
       </ul>
 
+      {order.cardMessage && (
+        <blockquote className="adm-order-notes adm-card-msg"><small>{L.ordCardMessage}</small>{order.cardMessage}</blockquote>
+      )}
       {order.notes && (
         <blockquote className="adm-order-notes"><small>{L.ordNotes}</small>{order.notes}</blockquote>
       )}
@@ -93,7 +118,7 @@ function OrderCard({ order, L, onChange }) {
 
       <div className="adm-order-actions">
         {next && (
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => update({ status: next })}>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => update({ status: next, from: order.status })}>
             <Icon name="check" size={16} />{L.ordNext.replace('{s}', t(`status.${next}`))}
           </button>
         )}
@@ -102,16 +127,17 @@ function OrderCard({ order, L, onChange }) {
           aria-label={L.ordStatus}
           value={order.status}
           disabled={busy}
-          onChange={(e) => update({ status: e.target.value })}
+          onChange={(e) => update({ status: e.target.value, from: order.status })}
         >
-          {STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
+          {/* only the moves that are allowed from here */}
+          {STATUSES.filter((s) => s === order.status || canMove(order.status, s)).map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
         </select>
         {order.status !== 'cancelled' && order.status !== 'done' && (
           <button
             type="button"
             className="btn btn-outline btn-sm adm-order-cancel"
             disabled={busy}
-            onClick={() => { if (window.confirm(L.ordCancelConfirm)) update({ status: 'cancelled' }) }}
+            onClick={() => { if (window.confirm(L.ordCancelConfirm)) update({ status: 'cancelled', from: order.status }) }}
           >
             {L.ordCancel}
           </button>
@@ -127,6 +153,7 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
   const { toast } = useToast()
   const { reload: reloadProducts } = useProducts()
   const [filter, setFilter] = useState('new')
+  const [day, setDay] = useState('') // '' = any delivery day
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [orders, setOrders] = useState([])
@@ -146,7 +173,7 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
     if (offset === 0) setState((s) => (s === 'ready' ? 'ready' : 'loading'))
     else setMore(true)
     try {
-      const data = await call(`/api/admin/orders?status=${filter}&limit=${PAGE}&offset=${offset}${query ? `&q=${encodeURIComponent(query)}` : ''}`)
+      const data = await call(`/api/admin/orders?status=${filter}&limit=${PAGE}&offset=${offset}${query ? `&q=${encodeURIComponent(query)}` : ''}${day ? `&day=${day}` : ''}`)
       if (mine !== req.current) return
       setOrders((list) => (offset ? [...list, ...data.orders] : data.orders))
       setTotal(data.total)
@@ -156,7 +183,7 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
     } finally {
       setMore(false)
     }
-  }, [call, filter, query])
+  }, [call, filter, query, day])
 
   useEffect(() => { load(0) }, [load, version])
 
@@ -170,9 +197,14 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
       }
       onChanged()
     } catch (err) {
-      toast(err?.code === 'not_enough_stock' ? L.ordNoStock : L.loadFailed, 'error')
+      if (err?.code === 'status_changed' || err?.code === 'bad_status_change') {
+        toast(L.ordChanged, 'error') // someone else changed it: show the fresh state
+        load(0)
+      } else {
+        toast(err?.code === 'not_enough_stock' ? L.ordNoStock : L.loadFailed, 'error')
+      }
     }
-  }, [call, toast, L, onChanged, reloadProducts])
+  }, [call, toast, L, onChanged, reloadProducts, load])
 
   const count = (key) => (key === 'new' ? summary?.newOrders : key === 'active' ? summary?.activeOrders : null)
 
@@ -196,6 +228,12 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
         <div className="adm-search adm-search-sm">
           <Icon name="search" size={18} />
           <input className="field" type="search" value={q} placeholder={L.ordSearch} aria-label={L.ordSearch} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <div className="chips adm-filter" role="group" aria-label={L.ordDeliveryDay}>
+          {[['', L.ordAnyDay], [shopDay(0), L.ordToday], [shopDay(1), L.ordTomorrow]].map(([d, label]) => (
+            <button key={label} type="button" className={`chip${day === d ? ' active' : ''}`} aria-pressed={day === d} onClick={() => setDay(d)}>{label}</button>
+          ))}
+          <input className="field adm-day-pick" type="date" aria-label={L.ordDeliveryDay} value={day} onChange={(e) => setDay(e.target.value)} />
         </div>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => { load(0); onChanged() }}>
           <Icon name="refresh" size={16} />{L.refresh}

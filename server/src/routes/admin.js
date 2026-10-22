@@ -6,7 +6,9 @@ import { endOtherSessions, endSession, hashPassword, limit, randomPassword, requ
 import { CODE_RE, normalizeCode } from '../pricing.js'
 import { checkShopSettings, getShopSettings, saveShopSettings } from '../settings.js'
 import { commitPhotos, copyPhotos, preparePhotos, removePhotos } from '../uploads.js'
-import { itemsFor, publicSettings } from './shop.js'
+import { logAdmin } from '../audit.js'
+import { recordMovement } from '../inventory.js'
+import { adminSettings, dayText, itemsFor } from './shop.js'
 import { json } from './common.js'
 
 const ADMIN_HOURS = 12
@@ -19,6 +21,18 @@ const STATUS_GROUPS = {
   all: STATUSES,
 }
 const PHOTO_BODY_LIMIT = 30 * 1024 * 1024 // 8 photos as data URLs
+
+// Allowed status changes. Forward only (steps may be skipped), cancel any
+// time before "done", and a cancelled order can be restored as "new".
+// "done" is final.
+const ORDER_FLOW = ['new', 'confirmed', 'preparing', 'delivering', 'done']
+export function canMove(from, to) {
+  if (from === to) return false
+  if (from === 'done') return false
+  if (from === 'cancelled') return to === 'new'
+  if (to === 'cancelled') return true
+  return ORDER_FLOW.indexOf(to) > ORDER_FLOW.indexOf(from)
+}
 
 const idParam = (ctx) => {
   const id = Number(ctx.params.id)
@@ -69,7 +83,7 @@ const COPY_WORD = { tm: 'nusga', ru: 'копия', tr: 'kopya' }
 
 // sign +1: an order was cancelled -> its counted flowers go back to stock
 // sign -1: a cancelled order is restored -> they are taken again (if enough)
-async function moveStock(db, orderId, discountCode, sign) {
+async function moveStock(db, orderId, discountCode, sign, adminId) {
   const { rows: items } = await db.query(
     `SELECT oi.product_id, sum(oi.qty)::int AS qty, p.stock FROM order_items oi
      JOIN products p ON p.id = oi.product_id
@@ -81,10 +95,14 @@ async function moveStock(db, orderId, discountCode, sign) {
     if (short.length) throw new HttpError(409, 'not_enough_stock', { items: short.map((i) => ({ id: i.product_id, left: i.stock })) })
   }
   for (const i of items) {
-    await db.query(
-      'UPDATE products SET stock = stock + $2, in_stock = (stock + $2 > 0), updated_at = now() WHERE id = $1',
+    const { rows } = await db.query(
+      'UPDATE products SET stock = stock + $2, in_stock = (stock + $2 > 0), updated_at = now() WHERE id = $1 RETURNING stock',
       [i.product_id, sign * i.qty],
     )
+    await recordMovement(db, {
+      productId: i.product_id, change: sign * i.qty, stockAfter: rows[0].stock,
+      reason: sign > 0 ? 'cancel' : 'restore', orderId, adminId,
+    })
   }
   if (discountCode) {
     await db.query('UPDATE discount_codes SET used_count = greatest(0, used_count - $2) WHERE upper(code) = $1', [discountCode.toUpperCase(), sign])
@@ -100,6 +118,10 @@ function adminOrder(o, items) {
     updatedAt: o.updated_at,
     customer: { first: o.first_name, last: o.last_name, phone: o.phone, email: o.email, city: o.city, address: o.address },
     registered: !!o.customer_id,
+    customerId: o.customer_id,
+    deliveryDate: dayText(o.delivery_date),
+    deliverySlot: o.delivery_slot || '',
+    cardMessage: o.card_message || '',
     notes: o.notes,
     adminNote: o.admin_note,
     deliveryType: o.delivery_type,
@@ -141,7 +163,12 @@ export function register(router) {
     const password = typeof ctx.body.password === 'string' ? ctx.body.password.slice(0, 200) : ''
     const { rows } = await query('SELECT id, username, password_hash FROM admins WHERE lower(username) = lower($1)', [username])
     const ok = rows[0] ? await verifyPassword(password, rows[0].password_hash) : await verifyDummy(password)
-    if (!ok) throw new HttpError(401, 'invalid_credentials')
+    if (!ok) {
+      await logAdmin(ctx, 'admin.login_failed', '', { username })
+      throw new HttpError(401, 'invalid_credentials')
+    }
+    ctx.adminId = rows[0].id
+    await logAdmin(ctx, 'admin.login')
     await startSession(ctx.res, 'admin', rows[0].id, { hours: ADMIN_HOURS, remember: false })
     sendJson(ctx.res, 200, { admin: { username: rows[0].username } })
   })
@@ -166,6 +193,7 @@ export function register(router) {
     if (!rows[0] || !(await verifyPassword(current, rows[0].password_hash))) throw new HttpError(401, 'invalid_credentials')
     await query('UPDATE admins SET password_hash = $2 WHERE id = $1', [ctx.adminId, await hashPassword(next)])
     await endOtherSessions(ctx.req, 'admin', ctx.adminId) // log out other computers / phones
+    await logAdmin(ctx, 'admin.password')
     sendJson(ctx.res, 200, { ok: true })
   })
 
@@ -175,9 +203,14 @@ export function register(router) {
       (SELECT count(*)::int FROM orders WHERE status = 'new') AS new_orders,
       (SELECT count(*)::int FROM orders WHERE status IN ('confirmed','preparing','delivering')) AS active_orders,
       (SELECT count(*)::int FROM messages WHERE read_at IS NULL) AS unread_messages,
-      (SELECT coalesce(max(id), 0)::int FROM orders) AS last_order_id`)
+      (SELECT coalesce(max(id), 0)::int FROM orders) AS last_order_id,
+      (SELECT count(*)::int FROM products WHERE deleted_at IS NULL AND stock IS NOT NULL AND stock <= $1) AS low_stock`,
+    [(await getShopSettings()).lowStockThreshold])
     const r = rows[0]
-    sendJson(ctx.res, 200, { newOrders: r.new_orders, activeOrders: r.active_orders, unreadMessages: r.unread_messages, lastOrderId: r.last_order_id })
+    sendJson(ctx.res, 200, {
+      newOrders: r.new_orders, activeOrders: r.active_orders, unreadMessages: r.unread_messages,
+      lastOrderId: r.last_order_id, lowStock: r.low_stock,
+    })
   })
 
   // ---- products ------------------------------------------------------------------
@@ -187,18 +220,23 @@ export function register(router) {
     const product = await withPhotos(ctx.body, async (urls) => {
       if (!urls.length) throw badRequest({ image: 'image' })
       const f = newProductFields(form.data)
-      const { rows } = await query(
-        `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, is_new, in_stock, tones, images, i18n,
-           stock, colors, rating, reviews, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-           coalesce($16, (SELECT coalesce(max(sort_order), 0) + 1 FROM products)))
-         RETURNING ${PRODUCT_COLUMNS}`,
-        [f.slug, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.is_new, f.in_stock,
-          JSON.stringify(f.tones), JSON.stringify(urls), JSON.stringify(f.i18n),
-          f.stock, JSON.stringify(f.colors), f.rating, f.reviews, f.sort_order],
-      )
-      await query("UPDATE products SET slug = slug || '-' || id WHERE id = $1", [rows[0].id])
-      return toProduct({ ...rows[0], slug: `${rows[0].slug}-${rows[0].id}` })
+      return transaction(async (db) => {
+        const { rows } = await db.query(
+          `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, is_new, in_stock, tones, images, i18n,
+             stock, colors, rating, reviews, is_featured, sort_order)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+             coalesce($17, (SELECT coalesce(max(sort_order), 0) + 1 FROM products)))
+           RETURNING ${PRODUCT_COLUMNS}`,
+          [f.slug, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.is_new, f.in_stock,
+            JSON.stringify(f.tones), JSON.stringify(urls), JSON.stringify(f.i18n),
+            f.stock, JSON.stringify(f.colors), f.rating, f.reviews, f.is_featured, f.sort_order],
+        )
+        const p = rows[0]
+        await db.query("UPDATE products SET slug = slug || '-' || id WHERE id = $1", [p.id])
+        if (p.stock !== null) await recordMovement(db, { productId: p.id, change: p.stock, stockAfter: p.stock, reason: 'set', adminId: ctx.adminId })
+        await logAdmin(ctx, 'product.create', `product:${p.id}`, { name: form.data.name, price: p.price, stock: p.stock }, db)
+        return toProduct({ ...p, slug: `${p.slug}-${p.id}` })
+      })
     })
     sendJson(ctx.res, 201, { product })
   })
@@ -210,16 +248,39 @@ export function register(router) {
     let removed = []
     const product = await withPhotos(ctx.body, (urls) => transaction(async (db) => {
       const row = await liveProduct(db, id)
+      // Stock changed since the form was opened (an order, a cancellation)?
+      // Untouched field -> keep the live count; both changed -> ask to reload.
+      if (ctx.body.stockSeen !== undefined && (row.stock ?? null) !== (ctx.body.stockSeen ?? null)) {
+        if ((form.data.stock ?? null) === (ctx.body.stockSeen ?? null)) {
+          form.data.stock = row.stock
+          form.data.inStock = row.stock === null ? form.data.inStock : row.stock > 0
+        } else {
+          throw new HttpError(409, 'stock_changed', { stock: row.stock })
+        }
+      }
       const f = editedProductFields(row, form.data)
       removed = (row.images || []).filter((u) => !urls.includes(u))
       const { rows } = await db.query(
         `UPDATE products SET cat = $2, custom_type = $3, occasions = $4, price = $5, old_price = $6, in_stock = $7,
            i18n = $8, images = $9, stock = $10, is_new = $11, sort_order = $12, colors = $13, rating = $14, reviews = $15,
-           updated_at = now()
+           is_featured = $16, updated_at = now()
          WHERE id = $1 RETURNING ${PRODUCT_COLUMNS}`,
         [id, f.cat, f.custom_type, JSON.stringify(f.occasions), f.price, f.old_price, f.in_stock,
-          JSON.stringify(f.i18n), JSON.stringify(urls), f.stock, f.is_new, f.sort_order, JSON.stringify(f.colors), f.rating, f.reviews],
+          JSON.stringify(f.i18n), JSON.stringify(urls), f.stock, f.is_new, f.sort_order, JSON.stringify(f.colors), f.rating, f.reviews,
+          f.is_featured],
       )
+      // the admin typed a new count: write the difference to the stock history
+      if (row.stock !== f.stock) {
+        await recordMovement(db, {
+          productId: id, change: (f.stock ?? 0) - (row.stock ?? 0), stockAfter: f.stock, reason: 'set', adminId: ctx.adminId,
+        })
+      }
+      const changed = Object.fromEntries(
+        [['price', row.price, f.price], ['oldPrice', row.old_price, f.old_price], ['stock', row.stock, f.stock],
+          ['inStock', row.in_stock, f.in_stock], ['featured', row.is_featured, f.is_featured]]
+          .filter(([, a, b]) => a !== b).map(([k, a, b]) => [k, [a, b]]),
+      )
+      await logAdmin(ctx, 'product.update', `product:${id}`, { name: form.data.name, changed }, db)
       return toProduct(rows[0])
     }))
     await removePhotos(removed)
@@ -237,6 +298,7 @@ export function register(router) {
     // photos of deleted products are not needed any more
     await removePhotos(rows.flatMap((r) => r.images || []))
     await query(`UPDATE products SET images = '[]' WHERE id = ANY($1::int[])`, [rows.map((r) => r.id)])
+    if (rows.length) await logAdmin(ctx, 'product.delete', rows.map((r) => `product:${r.id}`).join(','), { ids: rows.map((r) => r.id) })
     sendJson(ctx.res, 200, { deleted: rows.map((r) => r.id) })
   })
 
@@ -256,8 +318,8 @@ export function register(router) {
         await db.query('UPDATE products SET sort_order = sort_order + 1 WHERE sort_order > $1', [p.sort_order])
         const { rows } = await db.query(
           `INSERT INTO products (slug, cat, custom_type, occasions, price, old_price, rating, reviews, colors, is_new, in_stock,
-             stock, tones, images, i18n, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,$12,$13,$14,$15)
+             stock, tones, images, i18n, sort_order, is_featured)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10,$11,$12,$13,$14,$15,false)
            RETURNING ${PRODUCT_COLUMNS}`,
           [p.slug, p.cat, p.custom_type, p.occasions === null ? null : JSON.stringify(p.occasions), p.price, p.old_price,
             p.rating, p.reviews, JSON.stringify(p.colors || []), p.in_stock, p.stock, JSON.stringify(p.tones || []),
@@ -265,6 +327,8 @@ export function register(router) {
         )
         const slug = `${String(p.slug).replace(/-\d+$/, '')}-${rows[0].id}`
         await db.query('UPDATE products SET slug = $2 WHERE id = $1', [rows[0].id, slug])
+        if (p.stock !== null) await recordMovement(db, { productId: rows[0].id, change: p.stock, stockAfter: p.stock, reason: 'set', adminId: ctx.adminId, note: `copy of ${id}` })
+        await logAdmin(ctx, 'product.duplicate', `product:${rows[0].id}`, { from: id }, db)
         return toProduct({ ...rows[0], slug })
       })
     } catch (err) {
@@ -282,13 +346,21 @@ export function register(router) {
     const offset = Math.min(1_000_000, Math.max(0, Math.floor(Number(ctx.url.searchParams.get('offset')) || 0)))
     const params = [group, limitN, offset]
     let where = 'status = ANY($1::text[])'
+    // deliveries for one day (YYYY-MM-DD), e.g. "today's deliveries"
+    const day = String(ctx.url.searchParams.get('day') || '')
+    if (day) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw badRequest({ day: 'invalid' })
+      params.push(day)
+      where += ` AND delivery_date = $${params.length}::date`
+    }
     if (q) {
       params.push(`%${q.replace(/[\\%_]/g, '\\$&')}%`)
-      where += ` AND (code ILIKE $4 OR phone ILIKE $4 OR first_name ILIKE $4 OR last_name ILIKE $4 OR email ILIKE $4)`
+      const n = `$${params.length}`
+      where += ` AND (code ILIKE ${n} OR phone ILIKE ${n} OR first_name ILIKE ${n} OR last_name ILIKE ${n} OR email ILIKE ${n})`
     }
     const { rows } = await query(
       `SELECT *, count(*) OVER ()::int AS total_count FROM orders WHERE ${where}
-       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+       ORDER BY ${day ? "delivery_slot, created_at" : 'created_at DESC'} LIMIT $2 OFFSET $3`,
       params,
     )
     const items = await itemsFor(rows.map((r) => r.id))
@@ -309,12 +381,20 @@ export function register(router) {
     }
     if (!sets.length) throw badRequest({ status: 'required' })
     const rows = await transaction(async (db) => {
-      const { rows: before } = await db.query('SELECT status, discount_code FROM orders WHERE id = $1 FOR UPDATE', [id])
+      const { rows: before } = await db.query('SELECT code, status, discount_code FROM orders WHERE id = $1 FOR UPDATE', [id])
       if (!before[0]) throw new HttpError(404, 'not_found')
-      const was = before[0].status === 'cancelled'
-      const now = ctx.body.status === undefined ? was : ctx.body.status === 'cancelled'
-      // cancelling gives the flowers (and a code use) back; un-cancelling takes them again
-      if (was !== now) await moveStock(db, id, before[0].discount_code, now ? +1 : -1)
+      const from = before[0].status
+      const to = ctx.body.status
+      // "from" = the status the admin saw: if someone else changed the order
+      // meanwhile, nothing happens twice (e.g. two admins pressing "next")
+      if (to !== undefined && ctx.body.from !== undefined && ctx.body.from !== from) throw new HttpError(409, 'status_changed', { status: from })
+      if (to !== undefined && to !== from) {
+        if (!canMove(from, to)) throw new HttpError(409, 'bad_status_change', { status: from })
+        // cancelling gives the flowers (and a code use) back; restoring takes them again
+        if (to === 'cancelled' || from === 'cancelled') await moveStock(db, id, before[0].discount_code, to === 'cancelled' ? +1 : -1, ctx.adminId)
+        await logAdmin(ctx, 'order.status', `order:${before[0].code}`, { from, to }, db)
+      }
+      if (ctx.body.adminNote !== undefined) await logAdmin(ctx, 'order.note', `order:${before[0].code}`, {}, db)
       return (await db.query(`UPDATE orders SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, params)).rows
     })
     const items = await itemsFor([id])
@@ -340,7 +420,8 @@ export function register(router) {
   })
 
   router.delete('/api/admin/messages/:id', requireAdmin, async (ctx) => {
-    await query('DELETE FROM messages WHERE id = $1', [idParam(ctx)])
+    const { rowCount } = await query('DELETE FROM messages WHERE id = $1', [idParam(ctx)])
+    if (rowCount) await logAdmin(ctx, 'message.delete', `message:${ctx.params.id}`)
     sendJson(ctx.res, 200, { ok: true })
   })
 
@@ -371,7 +452,7 @@ export function register(router) {
 
   // Block / unblock a customer: body { blocked: true | false }. A blocked
   // customer cannot sign in (password or Google) and is logged out at once.
-  router.post('/api/admin/customers/:id/block', json(), requireAdmin, async (ctx) => {
+  router.post('/api/admin/customers/:id/block', requireAdmin, json(), async (ctx) => {
     const id = idParam(ctx)
     if (typeof ctx.body.blocked !== 'boolean') throw badRequest({ blocked: 'invalid' })
     const { rowCount } = await query(
@@ -380,6 +461,7 @@ export function register(router) {
     )
     if (!rowCount) throw new HttpError(404, 'not_found')
     if (ctx.body.blocked) await query(`DELETE FROM sessions WHERE kind = 'customer' AND customer_id = $1`, [id])
+    await logAdmin(ctx, ctx.body.blocked ? 'customer.block' : 'customer.unblock', `customer:${id}`)
     sendJson(ctx.res, 200, { ok: true, blocked: ctx.body.blocked })
   })
 
@@ -391,6 +473,7 @@ export function register(router) {
     const { rowCount } = await query('UPDATE customers SET password_hash = $2 WHERE id = $1', [id, await hashPassword(password)])
     if (!rowCount) throw new HttpError(404, 'not_found')
     await query(`DELETE FROM sessions WHERE kind = 'customer' AND customer_id = $1`, [id])
+    await logAdmin(ctx, 'customer.new_password', `customer:${id}`) // the password itself is never logged
     sendJson(ctx.res, 200, { password })
   })
 
@@ -398,20 +481,26 @@ export function register(router) {
   // with the account). Their past orders stay in Orders — with the name, phone
   // and address they typed — so the shop's history is not lost.
   router.delete('/api/admin/customers/:id', requireAdmin, async (ctx) => {
-    const { rowCount } = await query('DELETE FROM customers WHERE id = $1', [idParam(ctx)])
-    if (!rowCount) throw new HttpError(404, 'not_found')
+    const id = idParam(ctx)
+    const { rows } = await query('DELETE FROM customers WHERE id = $1 RETURNING email', [id])
+    if (!rows[0]) throw new HttpError(404, 'not_found')
+    await logAdmin(ctx, 'customer.delete', `customer:${id}`, { email: rows[0].email })
     sendJson(ctx.res, 200, { ok: true })
   })
 
   // ---- shop settings ------------------------------------------------------------------------
   router.get('/api/admin/settings', requireAdmin, async (ctx) => {
-    sendJson(ctx.res, 200, { settings: publicSettings(await getShopSettings()) })
+    sendJson(ctx.res, 200, { settings: adminSettings(await getShopSettings()) })
   })
 
   router.put('/api/admin/settings', requireAdmin, json(), async (ctx) => {
     const form = checkShopSettings(ctx.body)
     if (form.errors) throw badRequest(form.errors)
-    sendJson(ctx.res, 200, { settings: publicSettings(await saveShopSettings(form.data)) })
+    const before = await getShopSettings()
+    const saved = await saveShopSettings(form.data)
+    const changed = Object.keys(form.data).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(saved[k]))
+    if (changed.length) await logAdmin(ctx, 'settings.update', 'settings', { changed })
+    sendJson(ctx.res, 200, { settings: adminSettings(saved) })
   })
 
   // ---- discount codes -----------------------------------------------------------------------
@@ -428,6 +517,7 @@ export function register(router) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
         [d.code, d.kind, d.value, d.minTotal, d.startsAt, d.endsAt, d.maxUses, d.firstOrderOnly, d.active],
       )
+      await logAdmin(ctx, 'discount.create', `discount:${d.code}`, { kind: d.kind, value: d.value })
       sendJson(ctx.res, 201, { discount: adminDiscount(rows[0]) })
     } catch (err) {
       if (err.code === '23505') throw badRequest({ code: 'taken' })
@@ -446,6 +536,7 @@ export function register(router) {
         [id, d.code, d.kind, d.value, d.minTotal, d.startsAt, d.endsAt, d.maxUses, d.firstOrderOnly, d.active],
       )
       if (!rows[0]) throw new HttpError(404, 'not_found')
+      await logAdmin(ctx, 'discount.update', `discount:${d.code}`, { kind: d.kind, value: d.value, active: d.active })
       sendJson(ctx.res, 200, { discount: adminDiscount(rows[0]) })
     } catch (err) {
       if (err.code === '23505') throw badRequest({ code: 'taken' })
@@ -455,8 +546,9 @@ export function register(router) {
 
   // Orders keep the code text and amount, so deleting a code never changes them.
   router.delete('/api/admin/discounts/:id', requireAdmin, async (ctx) => {
-    const { rowCount } = await query('DELETE FROM discount_codes WHERE id = $1', [idParam(ctx)])
-    if (!rowCount) throw new HttpError(404, 'not_found')
+    const { rows } = await query('DELETE FROM discount_codes WHERE id = $1 RETURNING code', [idParam(ctx)])
+    if (!rows[0]) throw new HttpError(404, 'not_found')
+    await logAdmin(ctx, 'discount.delete', `discount:${rows[0].code}`)
     sendJson(ctx.res, 200, { ok: true })
   })
 
@@ -467,7 +559,8 @@ export function register(router) {
   })
 
   router.delete('/api/admin/subscribers/:id', requireAdmin, async (ctx) => {
-    await query('DELETE FROM subscribers WHERE id = $1', [idParam(ctx)])
+    const { rowCount } = await query('DELETE FROM subscribers WHERE id = $1', [idParam(ctx)])
+    if (rowCount) await logAdmin(ctx, 'subscriber.delete', `subscriber:${ctx.params.id}`)
     sendJson(ctx.res, 200, { ok: true })
   })
 }

@@ -4,6 +4,8 @@ import crypto from 'node:crypto'
 import { LANGS, SHOP } from '../config.js'
 import { pool, query, transaction } from '../db.js'
 import { HttpError, badRequest, sendJson } from '../http.js'
+import { checkDelivery, deliveryCalendar } from '../delivery.js'
+import { recordMovement } from '../inventory.js'
 import { basketFromBody, priceOrder } from '../pricing.js'
 import { PRODUCT_COLUMNS, toProduct } from '../products.js'
 import { limit, optionalCustomer } from '../security.js'
@@ -26,22 +28,36 @@ export function orderForCustomer(o, items) {
     discountCode: o.discount_code || '',
     deliveryFee: o.delivery_fee,
     total: o.total,
+    deliveryDate: dayText(o.delivery_date),
+    deliverySlot: o.delivery_slot || '',
     items: items.map((i) => ({ productId: i.product_id, names: i.names, price: i.price, qty: i.qty })),
   }
 }
+
+// A date column -> 'YYYY-MM-DD' or null (db.js keeps dates as text).
+export const dayText = (d) => (d ? String(d).slice(0, 10) : null)
 
 // What the website shows and may use from the shop settings.
 export function publicSettings(s) {
   return {
     deliveryPrice: s.deliveryPrice, freeDeliveryFrom: s.freeDeliveryFrom, ordersOpen: s.ordersOpen,
     firstOrderDiscount: s.firstOrderDiscount, phone: s.phone, email: s.email, instagram: s.instagram,
-    address: s.address, hours: s.hours,
+    address: s.address, hours: s.hours, scheduledDelivery: s.scheduledDelivery,
+  }
+}
+
+// Everything, for the admin's Settings tab.
+export function adminSettings(s) {
+  return {
+    ...publicSettings(s),
+    lowStockThreshold: s.lowStockThreshold, deliverySlots: s.deliverySlots,
+    deliveryDaysAhead: s.deliveryDaysAhead, slotCapacity: s.slotCapacity,
   }
 }
 
 // Counted flowers: the ordered amount comes off the stock; at 0 the flower
-// is sold out. (Rows are already locked by priceOrder.)
-export async function takeStock(db, lines) {
+// is sold out. (Rows are already locked by priceOrder.) Written to the stock history.
+export async function takeStock(db, lines, orderId) {
   for (const l of lines) {
     if (l.stock === null || l.stock === undefined) continue
     // "stock >= $2" as well: never below zero, even if two orders race
@@ -54,6 +70,7 @@ export async function takeStock(db, lines) {
       const left = (await db.query('SELECT stock FROM products WHERE id = $1', [l.id])).rows[0]?.stock ?? 0
       throw new HttpError(409, 'not_enough_stock', { items: [{ id: l.id, left }] })
     }
+    await recordMovement(db, { productId: l.id, change: -l.qty, stockAfter: rows[0].stock, reason: 'order', orderId })
   }
 }
 
@@ -77,6 +94,11 @@ export function register(router) {
   router.get('/api/products', async (ctx) => {
     const { rows } = await query(`SELECT ${PRODUCT_COLUMNS} FROM products WHERE deleted_at IS NULL ORDER BY sort_order, id`)
     sendJson(ctx.res, 200, { products: rows.map(toProduct) })
+  })
+
+  // Days and time slots a customer can choose at checkout.
+  router.get('/api/delivery/slots', limit('slots', 240, 10), async (ctx) => {
+    sendJson(ctx.res, 200, await deliveryCalendar(pool, await getShopSettings()))
   })
 
   router.get('/api/settings', async (ctx) => {
@@ -118,13 +140,17 @@ export function register(router) {
       address: text(errors, c, 'address', { required: deliveryType === 'delivery', max: 300 }),
       notes: text(errors, c, 'notes', { max: 1000 }),
     }
+    const cardMessage = text(errors, b, 'cardMessage', { max: 300 })
     const payment = oneOf(errors, b, 'payment', ['card', 'cash'], 'cash')
     const lang = LANGS.includes(b.lang) ? b.lang : 'tm'
     const qtyById = basketFromBody(b.items, errors, { maxLines: SHOP.maxOrderLines, maxQty: SHOP.maxQty })
     if (Object.keys(errors).length) throw badRequest(errors)
-    if (!(await getShopSettings()).ordersOpen) throw new HttpError(409, 'orders_closed')
+    const settings = await getShopSettings()
+    if (!settings.ordersOpen) throw new HttpError(409, 'orders_closed')
 
     const order = await transaction(async (db) => {
+      const when = await checkDelivery(db, settings, b, errors)
+      if (Object.keys(errors).length) throw badRequest(errors)
       const price = await priceOrder(db, {
         qtyById, deliveryType, customerId: ctx.customerId, lock: true,
         discountCode: typeof b.discountCode === 'string' ? b.discountCode.slice(0, 40) : '',
@@ -137,12 +163,15 @@ export function register(router) {
           await db.query('SAVEPOINT code_try')
           const r = await db.query(
             `INSERT INTO orders (code, customer_id, first_name, last_name, phone, email, city, address, notes,
-               delivery_type, payment, lang, subtotal, delivery_fee, total, discount, discount_code)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-             RETURNING id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code`,
+               delivery_type, payment, lang, subtotal, delivery_fee, total, discount, discount_code,
+               delivery_date, delivery_slot, card_message)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+             RETURNING id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code,
+               delivery_date, delivery_slot`,
             [newCode(), ctx.customerId || null, customer.first, customer.last, customer.phone, customer.email,
               customer.city, deliveryType === 'pickup' ? '' : customer.address, customer.notes,
-              deliveryType, payment, lang, subtotal, deliveryFee, total, discount, price.discountCode],
+              deliveryType, payment, lang, subtotal, deliveryFee, total, discount, price.discountCode,
+              when.date, when.slot, cardMessage],
           )
           row = r.rows[0]
         } catch (err) {
@@ -156,7 +185,7 @@ export function register(router) {
           [row.id, l.id, JSON.stringify(l.names), l.price, l.qty],
         )
       }
-      await takeStock(db, lines)
+      await takeStock(db, lines, row.id)
       if (price.codeRow) await db.query('UPDATE discount_codes SET used_count = used_count + 1 WHERE id = $1', [price.codeRow.id])
       return orderForCustomer(row, lines.map((l) => ({ product_id: l.id, names: l.names, price: l.price, qty: l.qty })))
     })
@@ -168,7 +197,8 @@ export function register(router) {
     const code = String(ctx.params.code || '').trim().toUpperCase()
     if (!/^LG-[A-Z0-9]{4,12}$/.test(code)) throw new HttpError(404, 'not_found')
     const { rows } = await query(
-      'SELECT id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code FROM orders WHERE code = $1',
+      `SELECT id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code,
+         delivery_date, delivery_slot FROM orders WHERE code = $1`,
       [code],
     )
     if (!rows[0]) throw new HttpError(404, 'not_found')

@@ -7,6 +7,7 @@ import { useToast } from '../../contexts/ToastContext'
 import Icon from '../../components/Icons'
 import { formatPrice } from '../../utils/productHelpers'
 import { settingsSet } from '../../store/settingsSlice'
+import { api } from '../../api'
 
 const LANGS = [['tm', 'Türkmençe'], ['ru', 'Русский'], ['tr', 'Türkçe']]
 
@@ -14,6 +15,7 @@ const LANGS = [['tm', 'Türkmençe'], ['ru', 'Русский'], ['tr', 'Türkçe
 const SETTINGS_ERR = {
   deliveryPrice: 'setENumber', freeDeliveryFrom: 'setENumber', firstOrderDiscount: 'setEPercent',
   phone: 'setEPhone', email: 'setEEmail', instagram: 'setELink',
+  lowStockThreshold: 'setENumber', deliveryDaysAhead: 'setENumber', slotCapacity: 'setENumber', deliverySlots: 'setESlots',
 }
 
 function Field({ id, label, hint, error, children }) {
@@ -28,6 +30,8 @@ function Field({ id, label, hint, error, children }) {
 }
 
 // ---- settings ---------------------------------------------------------------------------
+const toForm = (s) => ({ ...s, address: { ...s.address }, hours: { ...s.hours }, slotsText: (s.deliverySlots || []).join('\n') })
+
 export function AdminSettings({ L, call }) {
   const { t } = useI18n()
   const { toast } = useToast()
@@ -41,7 +45,7 @@ export function AdminSettings({ L, call }) {
     setFailed(false)
     try {
       const { settings } = await call('/api/admin/settings')
-      setForm({ ...settings, address: { ...settings.address }, hours: { ...settings.hours } })
+      setForm(toForm(settings))
     } catch { setFailed(true) }
   }, [call])
   useEffect(() => { load() }, [load])
@@ -75,10 +79,14 @@ export function AdminSettings({ L, call }) {
           deliveryPrice: Number(form.deliveryPrice),
           freeDeliveryFrom: Number(form.freeDeliveryFrom),
           firstOrderDiscount: Number(form.firstOrderDiscount),
+          lowStockThreshold: Number(form.lowStockThreshold),
+          deliveryDaysAhead: Number(form.deliveryDaysAhead),
+          slotCapacity: Number(form.slotCapacity),
+          deliverySlots: form.slotsText.split('\n').map((x) => x.trim()).filter(Boolean),
         },
       })
       dispatch(settingsSet(settings)) // the shop shows the new values at once
-      setForm({ ...settings, address: { ...settings.address }, hours: { ...settings.hours } })
+      setForm(toForm(settings))
       setErrors({})
       toast(L.setSaved)
     } catch (err2) {
@@ -90,6 +98,7 @@ export function AdminSettings({ L, call }) {
   }
 
   return (
+    <>
     <form className="summary adm-settings" style={{ position: 'static' }} onSubmit={onSubmit} noValidate>
       <h3 className="with-ico"><Icon name="truck" size={20} />{L.setOrders}</h3>
       <label className="check adm-stock" style={{ marginBottom: 18 }}>
@@ -106,6 +115,28 @@ export function AdminSettings({ L, call }) {
       </div>
       <Field id="set-first" label={L.setFirstOrder} hint={L.setFirstOrderHint} error={err('firstOrderDiscount')}>
         <input id="set-first" className="field" type="number" min="0" max="90" step="1" inputMode="numeric" value={form.firstOrderDiscount} onChange={set('firstOrderDiscount')} />
+      </Field>
+
+      <h3 className="with-ico" style={{ marginTop: 26 }}><Icon name="clock" size={20} />{L.setSchedule}</h3>
+      <label className="check adm-stock" style={{ marginBottom: 14 }}>
+        <input type="checkbox" checked={form.scheduledDelivery} onChange={(e) => setForm({ ...form, scheduledDelivery: e.target.checked })} />
+        <span><strong>{L.setScheduled}</strong><small className="muted">{L.setScheduledHint}</small></span>
+      </label>
+      <Field id="set-slots" label={L.setSlots} hint={L.setSlotsHint} error={err('deliverySlots')}>
+        <textarea id="set-slots" className="field" rows={4} value={form.slotsText} onChange={set('slotsText')} />
+      </Field>
+      <div className="form-grid">
+        <Field id="set-ahead" label={L.setDaysAhead} hint={L.setDaysAheadHint} error={err('deliveryDaysAhead')}>
+          <input id="set-ahead" className="field" type="number" min="0" max="90" step="1" inputMode="numeric" value={form.deliveryDaysAhead} onChange={set('deliveryDaysAhead')} />
+        </Field>
+        <Field id="set-cap" label={L.setCapacity} hint={L.setCapacityHint} error={err('slotCapacity')}>
+          <input id="set-cap" className="field" type="number" min="0" step="1" inputMode="numeric" value={form.slotCapacity} onChange={set('slotCapacity')} />
+        </Field>
+      </div>
+
+      <h3 className="with-ico" style={{ marginTop: 26 }}><Icon name="box" size={20} />{L.setStock}</h3>
+      <Field id="set-low" label={L.setLowStock} hint={L.setLowStockHint} error={err('lowStockThreshold')}>
+        <input id="set-low" className="field" type="number" min="0" step="1" inputMode="numeric" value={form.lowStockThreshold} onChange={set('lowStockThreshold')} />
       </Field>
 
       <h3 className="with-ico" style={{ marginTop: 26 }}><Icon name="phone" size={20} />{L.setContacts}</h3>
@@ -137,6 +168,56 @@ export function AdminSettings({ L, call }) {
         ))}
       </fieldset>
       <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>{busy ? L.saving : L.setSave}</button>
+    </form>
+    <AdminPassword L={L} />
+    </>
+  )
+}
+
+// Change the signed-in admin's own password (other devices are signed out).
+// (api, not the panel's call(): a wrong current password is a 401 too, and
+// must not count as "signed out".)
+function AdminPassword({ L }) {
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function onSubmit(e) {
+    e.preventDefault()
+    const f = e.target
+    setError('')
+    if (f.next.value.length < 8) { setError(L.pwShort); return }
+    if (f.next.value !== f.again.value) { setError(L.pwMismatch); return }
+    setBusy(true)
+    try {
+      await api('/api/admin/password', { method: 'POST', body: { current: f.current.value, next: f.next.value } })
+      f.reset()
+      toast(L.pwChanged)
+    } catch (err) {
+      setError(err?.code === 'invalid_credentials' ? L.pwWrong : err?.code === 'rate_limited' ? L.pwLimited : L.loadFailed)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="summary adm-settings" style={{ position: 'static', marginTop: 24 }} onSubmit={onSubmit} noValidate>
+      <h3 className="with-ico"><Icon name="key" size={20} />{L.pwTitle}</h3>
+      <p className="muted" style={{ marginTop: 0 }}>{L.pwHint}</p>
+      <input type="text" name="username" autoComplete="username" hidden readOnly />
+      <Field id="pw-current" label={L.pwCurrent}>
+        <input id="pw-current" name="current" className="field" type="password" autoComplete="current-password" maxLength={200} />
+      </Field>
+      <div className="form-grid">
+        <Field id="pw-next" label={L.pwNew}>
+          <input id="pw-next" name="next" className="field" type="password" autoComplete="new-password" maxLength={200} />
+        </Field>
+        <Field id="pw-again" label={L.pwAgain}>
+          <input id="pw-again" name="again" className="field" type="password" autoComplete="new-password" maxLength={200} />
+        </Field>
+      </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="btn btn-outline btn-block" type="submit" disabled={busy} aria-busy={busy}>{busy ? L.saving : L.pwSave}</button>
     </form>
   )
 }

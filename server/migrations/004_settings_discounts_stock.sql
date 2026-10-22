@@ -45,7 +45,3 @@ CREATE UNIQUE INDEX discount_codes_code_key ON discount_codes (upper(code));
 -- discount) and the amount taken off the flowers.
 ALTER TABLE orders ADD COLUMN discount_code text NOT NULL DEFAULT '';
 ALTER TABLE orders ADD COLUMN discount integer NOT NULL DEFAULT 0 CHECK (discount >= 0);
-
--- The home page banner already advertises LALE20 (20% off the first order);
--- this makes the code work. Change or switch it off in admin → Discounts.
-INSERT INTO discount_codes (code, kind, value, first_order_only) VALUES ('LALE20', 'percent', 20, true);

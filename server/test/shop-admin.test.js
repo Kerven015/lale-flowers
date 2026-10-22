@@ -278,7 +278,7 @@ describe('flowers left (stock)', () => {
     assert.deepEqual(await stockOf(id), { stock: 2, in_stock: true })
     await adminCall('PATCH', `/api/admin/orders/${orderId}`, { adminNote: 'still cancelled' }) // no double return
     assert.equal((await stockOf(id)).stock, 2)
-    await adminCall('PATCH', `/api/admin/orders/${orderId}`, { status: 'confirmed' })
+    await adminCall('PATCH', `/api/admin/orders/${orderId}`, { status: 'new' }) // restore = back to "new"
     assert.deepEqual(await stockOf(id), { stock: 0, in_stock: false })
   })
 

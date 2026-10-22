@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext'
 import { productPhotos } from '../../utils/productHelpers'
 import PhotoUploader, { photoFromUrl } from '../../components/PhotoUploader'
 import AdminCatalog from '../../components/AdminCatalog'
+import StockPanel from './StockPanel'
 import ConfirmDelete from '../../components/ConfirmDelete'
 import DescriptionEditor, { detailsFromProduct, emptyDetails } from '../../components/DescriptionEditor'
 import { ADMIN_TYPES, MAX_PHOTOS, validateForm } from '../../utils/adminProducts'
@@ -22,13 +23,13 @@ const IMAGE_ERR = { image: 'eImage', too_many: 'eTooMany', too_large: 'eTooLarge
 
 const emptyForm = () => ({
   name: '', type: 'roses', customType: '', occasions: [], price: '', old: '', inStock: true, photos: [], details: emptyDetails(),
-  stock: '', isNew: true, sortOrder: '', colors: [], rating: '', reviews: '',
+  stock: '', isNew: true, featured: false, sortOrder: '', colors: [], rating: '', reviews: '',
 })
 const text = (v) => (v === null || v === undefined ? '' : String(v))
 
 export default function AdminProducts({ L, onSessionLost }) {
   const { lang, t } = useI18n()
-  const { products, name, catName, saveProduct, deleteProducts, duplicateProduct } = useProducts()
+  const { products, name, catName, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
   const { toast } = useToast()
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
@@ -67,6 +68,8 @@ export default function AdminProducts({ L, onSessionLost }) {
       details: detailsFromProduct(p),
       stock: text(p.stock),
       isNew: !!p.isNew,
+      featured: !!p.featured,
+      stockSeen: p.stock ?? null, // the count when the form was opened
       sortOrder: text(p.sortOrder),
       colors: p.colors || [],
       rating: p.reviews > 0 || p.rating > 0 ? text(p.rating) : '',
@@ -114,7 +117,9 @@ export default function AdminProducts({ L, onSessionLost }) {
         images,
         details: form.details,
         stock: form.stock,
+        stockSeen: editing ? form.stockSeen : undefined,
         isNew: form.isNew,
+        featured: form.featured,
         sortOrder: form.sortOrder,
         colors: form.colors,
         rating: form.rating,
@@ -127,6 +132,11 @@ export default function AdminProducts({ L, onSessionLost }) {
         const f = err.data.fields
         setErrors(Object.fromEntries(Object.entries(f).map(([k, code]) => [k, k === 'image' ? `img:${code}` : code])))
         showFirstError()
+      } else if (err.code === 'stock_changed') {
+        // flowers were sold / returned while the form was open: show the live count
+        toast(L.stockChanged.replace('{n}', err.data?.stock ?? '—'), 'error')
+        setForm((f) => ({ ...f, stock: text(err.data?.stock), stockSeen: err.data?.stock ?? null }))
+        reload()
       } else if (err.status === 404) {
         toast(L.loadFailed, 'error')
         resetForm()
@@ -303,9 +313,25 @@ export default function AdminProducts({ L, onSessionLost }) {
             <input type="checkbox" checked={counted ? Number(form.stock) > 0 : form.inStock} disabled={counted} onChange={(e) => setForm({ ...form, inStock: e.target.checked })} />
             <span><strong>{L.inStock}</strong><small className="muted">{counted ? L.inStockCounted : L.inStockHint}</small></span>
           </label>
+          {editing && (
+            <StockPanel
+              product={products.find((p) => p.id === editing.id) || editing}
+              L={L}
+              onSessionLost={onSessionLost}
+              onChanged={(stock) => {
+                // keep the form's count in step with the server
+                setForm((f) => ({ ...f, stock: text(stock), stockSeen: stock }))
+                reload()
+              }}
+            />
+          )}
           <label className="check adm-stock" style={{ marginBottom: 14 }}>
             <input type="checkbox" checked={form.isNew} onChange={(e) => setForm({ ...form, isNew: e.target.checked })} />
             <span><strong>{L.isNew}</strong><small className="muted">{L.isNewHint}</small></span>
+          </label>
+          <label className="check adm-stock" style={{ marginBottom: 14 }}>
+            <input type="checkbox" checked={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.checked })} />
+            <span><strong>{L.featured}</strong><small className="muted">{L.featuredHint}</small></span>
           </label>
           <div className="form-field" style={{ marginBottom: 14 }}>
             <label id="adm-colors-label">{L.colors}</label>

@@ -32,6 +32,17 @@ export default function Checkout() {
   const { toast } = useToast()
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [payment, setPayment] = useState('card')
+  // delivery time: as soon as possible, or a chosen day + time slot
+  const [calendar, setCalendar] = useState(null) // { enabled, days: [{ date, slots: [{ slot, open }] }] }
+  const [when, setWhen] = useState('asap')
+  const [day, setDay] = useState('')
+  const [slot, setSlot] = useState('')
+  const [card, setCard] = useState('') // greeting card text
+  const loadCalendar = async () => {
+    try { setCalendar(await api('/api/delivery/slots')) } catch { setCalendar(null) }
+  }
+  useEffect(() => { loadCalendar() }, [])
+  const dayInfo = calendar?.days?.find((d) => d.date === day)
   const [order, setOrder] = useState(null) // the placed order (from the server)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState({}) // server field name -> translation key
@@ -107,6 +118,11 @@ export default function Checkout() {
     if (busy) return
     if (!cart.length) { toast(t('checkout.emptyCart'), 'error'); return }
     if (!ordersOpen) { toast(t('checkout.closed'), 'error'); return }
+    if (when === 'scheduled' && (!day || !slot)) {
+      setErrors({ deliverySlot: 'when.pick' })
+      toast(t('when.pick'), 'error')
+      return
+    }
     const form = e.target
     const value = (n) => (form[n] ? form[n].value.trim() : '')
 
@@ -136,6 +152,9 @@ export default function Checkout() {
           payment,
           lang,
           discountCode: code,
+          deliveryDate: when === 'scheduled' ? day : '',
+          deliverySlot: when === 'scheduled' ? slot : '',
+          cardMessage: card.trim(),
         },
       })
       // ordered flowers leave the basket; sold-out ones (not ordered) stay
@@ -149,6 +168,12 @@ export default function Checkout() {
         focusFirst(form, fe)
       }
       if (err.code === 'unavailable') reload() // sold-out / removed flowers drop out of the basket
+      if (err.code === 'slot_full' || err.data?.fields?.deliverySlot || err.data?.fields?.deliveryDate) {
+        // the chosen time is taken / no longer possible: fresh choices
+        setSlot('')
+        setErrors((er) => ({ ...er, deliverySlot: err.code === 'slot_full' ? 'when.full' : 'when.gone' }))
+        loadCalendar()
+      }
       if (err.code === 'not_enough_stock') {
         // fewer left than in the basket: the basket shrinks to what is left
         for (const it of err.data?.items || []) if (it.left > 0) setQty(it.id, it.left)
@@ -156,7 +181,10 @@ export default function Checkout() {
       }
       const why = err.data?.fields?.discountCode
       if (why) { setCode(''); setCodeError(fill(t(CODE_ERRORS[why] || 'disc.notFound'), { min: err.data?.minTotal ?? '' })) }
-      toast(err.code === 'not_enough_stock' ? t('stock.notEnough') : errorMessage(t, err), 'error')
+      toast(err.code === 'not_enough_stock' ? t('stock.notEnough')
+        : err.code === 'slot_full' ? t('when.full')
+        : err.data?.fields?.deliverySlot || err.data?.fields?.deliveryDate ? t('when.gone')
+        : errorMessage(t, err), 'error')
     } finally {
       setBusy(false)
     }
@@ -242,6 +270,59 @@ export default function Checkout() {
                 {input('coNotes', t('checkout.notes'), { full: true, textarea: true })}
               </div>
 
+              {calendar?.enabled && calendar.days.length > 0 && (
+                <>
+                  <h3 style={{ marginTop: 30 }}>{t('when.title')}</h3>
+                  <div className="form-grid">
+                    <label className={`radio-card${when === 'asap' ? ' active' : ''}`}>
+                      <input type="radio" name="when" checked={when === 'asap'} onChange={() => setWhen('asap')} />
+                      <div><div className="rc-title with-ico"><Icon name="zap" size={18} />{t('when.asap')}</div><div className="rc-sub">{t('when.asapSub')}</div></div>
+                    </label>
+                    <label className={`radio-card${when === 'scheduled' ? ' active' : ''}`}>
+                      <input type="radio" name="when" checked={when === 'scheduled'} onChange={() => { setWhen('scheduled'); if (!day) setDay(calendar.days[0].date) }} />
+                      <div><div className="rc-title with-ico"><Icon name="clock" size={18} />{t('when.pickTitle')}</div><div className="rc-sub">{t('when.pickSub')}</div></div>
+                    </label>
+                  </div>
+                  {when === 'scheduled' && (
+                    <div className="when-picker">
+                      <div className="form-field">
+                        <label htmlFor="coDay">{t('when.day')}</label>
+                        <select id="coDay" className="field" value={day} onChange={(e) => { setDay(e.target.value); setSlot(''); setErrors((er) => ({ ...er, deliverySlot: undefined })) }}>
+                          {calendar.days.map((d) => (
+                            <option key={d.date} value={d.date}>
+                              {new Date(`${d.date}T00:00:00Z`).toLocaleDateString(lang === 'tm' ? 'tk' : lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-field">
+                        <span className="when-label" id="coSlot-label">{t('when.slot')}</span>
+                        <div className="chips" role="radiogroup" aria-labelledby="coSlot-label">
+                          {(dayInfo?.slots || []).map((s) => (
+                            <button
+                              key={s.slot} type="button" role="radio" aria-checked={slot === s.slot} disabled={!s.open}
+                              className={`chip${slot === s.slot ? ' active' : ''}`}
+                              title={s.open ? undefined : t('when.slotTaken')}
+                              onClick={() => { setSlot(s.slot); setErrors((er) => ({ ...er, deliverySlot: undefined })) }}
+                            >
+                              {s.slot}
+                            </button>
+                          ))}
+                        </div>
+                        {errors.deliverySlot && <small className="field-error" role="alert">{t(errors.deliverySlot)}</small>}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <h3 style={{ marginTop: 30 }}>{t('gift.title')}</h3>
+              <div className="form-field full">
+                <label htmlFor="coCard">{t('gift.label')}</label>
+                <textarea id="coCard" className="field" rows={3} maxLength={300} placeholder={t('gift.ph')} value={card} onChange={(e) => setCard(e.target.value)} />
+                <small className="muted">{card.length}/300 · {t('gift.hint')}</small>
+              </div>
+
               <h3 style={{ marginTop: 30 }}>{t('checkout.payment')}</h3>
               <div className="form-grid">
                 <label className={`radio-card${payment === 'card' ? ' active' : ''}`}>
@@ -293,7 +374,7 @@ export default function Checkout() {
                         maxLength={30}
                         autoComplete="off"
                         autoCapitalize="characters"
-                        placeholder="LALE20"
+                        placeholder="SPRING10"
                         aria-invalid={!!codeError}
                         aria-describedby={codeError ? 'coCode-err' : undefined}
                         onChange={(e) => { setCodeInput(e.target.value); setCodeError('') }}

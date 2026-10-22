@@ -117,4 +117,14 @@ orders, first-order discount) are changed in the admin panel → **Settings**;
 **discount codes** in admin → **Discounts**. The website only shows these
 numbers; the server works out every order's price itself
 (`server/src/pricing.js`). Flowers can have a count of how many are left
-(admin → flower form): orders take from it, cancelling puts it back.
+(admin → flower form): orders take from it, cancelling puts it back, and
+"received / wilted / correction" changes are kept in a stock history.
+
+**Admin panel tabs:** Overview (today's numbers, sales by day / week / month,
+best sellers, flowers running low, recent orders), Orders (status changes
+follow new → confirmed → preparing → on the way → delivered; cancel before
+delivered; a cancelled order comes back as "new"), Flowers, Messages,
+Customers (with their orders), Subscribers, Discounts, Settings (delivery
+prices, delivery days and time slots, low-stock level, contacts, admin
+password) and Log (every admin action). Revenue counts delivered orders
+only; cancelled orders never count.
