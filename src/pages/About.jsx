@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 import PageHead from '../components/PageHead'
 import { useI18n } from '../contexts/I18nContext'
 import Icon from '../components/Icons'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function About() {
   const { t } = useI18n()

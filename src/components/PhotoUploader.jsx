@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { imageFilesFrom, processPhoto } from '../utils/imageFiles'
 import Icon from './Icons'
+import { assetUrl } from '../utils/assets'
 
 let seq = 0
 export const newPhotoId = () => `ph${Date.now().toString(36)}${(seq++).toString(36)}`
@@ -186,7 +187,7 @@ export default function PhotoUploader({ photos, onChange, max = 8, L, error, onL
               onPointerDown={(e) => onPointerDown(e, p.id)}
               onKeyDown={(e) => onKeyDown(e, i)}
             >
-              {p.src && <img src={p.src} alt="" draggable={false} />}
+              {p.src && <img src={assetUrl(p.src)} alt="" draggable={false} />}
               {i === 0 && <span className="pu-main">{L.main}</span>}
               {p.status === 'loading' && (
                 <span className="pu-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p.progress * 100)}>

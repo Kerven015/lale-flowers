@@ -8,8 +8,8 @@ import Icon from './Icons'
 import { CountBadge } from '../motion/RollingNumber'
 import { useSlidingPill } from '../motion/motion'
 import { useAuth, useCart, useProducts } from '../store/hooks'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 const LANGS = ['tm', 'ru', 'tr']
 
 function LangSwitch({ className = '' }) {

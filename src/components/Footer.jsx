@@ -7,8 +7,8 @@ import { FLOWER_TYPES } from '../data/navigation'
 import Icon from './Icons'
 import { useAuth, useSettings } from '../store/hooks'
 import { EMAIL_RE } from '../utils/formCheck'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Footer() {
   const { t } = useI18n()
