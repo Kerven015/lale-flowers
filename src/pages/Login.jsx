@@ -9,8 +9,8 @@ import { useFinishSignIn } from '../components/PendingCart'
 import { checkFields, clearError, focusFirstError } from '../utils/formCheck'
 import { useAuth } from '../store/hooks'
 import { hasPendingAdd } from '../store/cartSlice'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Login() {
   const { t } = useI18n()

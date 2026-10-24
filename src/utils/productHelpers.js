@@ -1,4 +1,7 @@
+import { assetUrl } from './assets'
+
 // All real photos of a product, in order (first = main/cover photo).
+// (Stored paths, as the admin form saves them; for showing use galleryImages / productImage.)
 // Older products only have `image`; they count as a one-photo gallery.
 export function productPhotos(product) {
   const list = Array.isArray(product?.images) ? product.images.filter((s) => typeof s === 'string' && s) : []
@@ -9,13 +12,13 @@ export function productPhotos(product) {
 // Photos for the gallery: real photos, or the drawn placeholder if none.
 export function galleryImages(product) {
   const list = productPhotos(product)
-  return list.length ? list : [productImage(product)]
+  return list.length ? list.map(assetUrl) : [productImage(product)]
 }
 
 export function productImage(product) {
   const first = Array.isArray(product?.images) && product.images[0]
-  if (first) return first
-  if (product?.image) return product.image
+  if (first) return assetUrl(first)
+  if (product?.image) return assetUrl(product.image)
   const tones = product?.tones || ['#e01b24', '#7a0d13']
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">` +

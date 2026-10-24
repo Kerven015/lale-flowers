@@ -3,8 +3,8 @@ import { useI18n } from '../contexts/I18nContext'
 import Icon from '../components/Icons'
 import { useSettings } from '../store/hooks'
 import { fill } from '../utils/productHelpers'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Delivery() {
   const { t } = useI18n()

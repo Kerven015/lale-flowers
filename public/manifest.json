@@ -2,7 +2,7 @@
   "name": "Lale Gülleri — Gül Dükany",
   "short_name": "Lale Gülleri",
   "description": "Aşgabatdaky iň owadan gül dükany. Täze güller, buketler we sowgatlar.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0a0c",
   "theme_color": "#e01b24",

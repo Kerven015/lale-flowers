@@ -10,8 +10,8 @@ import { checkFields, clearError, focusFirstError, keysFromServer } from '../uti
 import { useAuth, useSettings } from '../store/hooks'
 import { fill } from '../utils/productHelpers'
 import { hasPendingAdd } from '../store/cartSlice'
+import { LOGO } from '../utils/assets'
 
-const LOGO = '/images/lale%20gulleri.jpg'
 
 export default function Register() {
   const { t, lang } = useI18n()
