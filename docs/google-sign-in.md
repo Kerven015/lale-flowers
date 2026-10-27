@@ -158,11 +158,13 @@ profile; changing the email needs a password.
   that browser. They can still choose the account in One Tap themselves.
 
 **Content-Security-Policy**
-- The shop does not send a CSP header today. If you add one later, allow only:
+- The shop sends a CSP header (the Node server in `server/src/app.js`, and the
+  Nginx example in `server/deploy/`). For Google it allows only:
   `script-src https://accounts.google.com/gsi/client`,
   `frame-src https://accounts.google.com/gsi/`,
   `connect-src https://accounts.google.com/gsi/`,
   `style-src https://accounts.google.com/gsi/style`.
+  If you change one of the two, change the other too.
 - Keep `Cross-Origin-Opener-Policy: same-origin-allow-popups` (the server and
   the nginx example already send it), otherwise the Google pop-up cannot
   report back to the page.

@@ -87,7 +87,7 @@ Create the tables, add the 16 flowers, and create your admin login:
 
 ```bash
 npm run setup          # tables + the 16 original flowers
-npm run create-admin   # asks for a username and a password (at least 8 characters)
+npm run create-admin   # asks for a username and a password (at least 12 characters)
 ```
 
 Run `npm run create-admin` again any time to add another admin, or to set a

@@ -4,7 +4,7 @@ import { config, LANGS } from '../config.js'
 import { query } from '../db.js'
 import { customerForGoogle, verifyGoogleCredential } from '../google.js'
 import { HttpError, badRequest, sendJson } from '../http.js'
-import { endOtherSessions, endSession, hashPassword, limit, requireCustomer, startSession, verifyDummy, verifyPassword } from '../security.js'
+import { endOtherSessions, endSession, failureLimit, hashPassword, limit, requireCustomer, startSession, verifyDummy, verifyPassword } from '../security.js'
 import { email, phone, text } from '../validate.js'
 import { itemsFor, orderForCustomer } from './shop.js'
 import { json } from './common.js'
@@ -20,6 +20,8 @@ const publicCustomer = (c) => ({
   hasPassword: !!c.has_password, google: !!c.google, emailVerified: !!c.email_verified_at,
 })
 const emailKey = (ctx) => String(ctx.body?.email || '').trim().toLowerCase()
+// wrong passwords for one account from all IP addresses together
+const accountFailures = failureLimit('login-account', 30, 60)
 
 async function loadCustomer(id) {
   const { rows } = await query(
@@ -63,14 +65,18 @@ export function register(router) {
     sendJson(ctx.res, 201, { user: await loadCustomer(row.id) })
   })
 
-  router.post('/api/auth/login', json(), limit('login', 10, 15, emailKey), async (ctx) => {
+  router.post('/api/auth/login', json(), limit('login-ip', 50, 15), limit('login', 10, 15, emailKey), async (ctx) => {
     const addr = emailKey(ctx)
+    accountFailures.check(ctx, addr)
     const password = typeof ctx.body.password === 'string' ? ctx.body.password.slice(0, 200) : ''
     const { rows } = await query('SELECT id, password_hash, blocked_at FROM customers WHERE lower(email) = $1', [addr])
     // An account made with Google (no password yet) answers exactly like a
     // wrong password, and takes just as long.
     const ok = rows[0]?.password_hash ? await verifyPassword(password, rows[0].password_hash) : await verifyDummy(password)
-    if (!ok) throw new HttpError(401, 'invalid_credentials')
+    if (!ok) {
+      accountFailures.fail(addr)
+      throw new HttpError(401, 'invalid_credentials')
+    }
     if (rows[0].blocked_at) throw new HttpError(403, 'account_blocked')
     const remember = ctx.body.remember === true
     await startSession(ctx.res, 'customer', rows[0].id, { hours: remember ? LONG_HOURS : SHORT_HOURS, remember })

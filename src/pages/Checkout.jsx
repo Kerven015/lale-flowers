@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import PageHead from '../components/PageHead'
 import { useDelivery } from '../contexts/DeliveryContext'
 import { useI18n } from '../contexts/I18nContext'
@@ -11,6 +11,7 @@ import RollingNumber from '../motion/RollingNumber'
 import { api, errorMessage } from '../api'
 import { checkFields, keysFromServer } from '../utils/formCheck'
 import { useAuth, useCart, useProducts, useSettings } from '../store/hooks'
+import { returnAfterSignIn } from '../store/cartSlice'
 import { fill } from '../utils/productHelpers'
 
 // why a discount code was refused -> message key
@@ -28,8 +29,9 @@ export default function Checkout() {
   const { ordersOpen } = useSettings()
   const { city } = useDelivery()
   const { get, name, loading, reload } = useProducts()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [deliveryType, setDeliveryType] = useState('delivery')
   const [payment, setPayment] = useState('card')
   // delivery time: as soon as possible, or a chosen day + time slot
@@ -113,9 +115,16 @@ export default function Checkout() {
     return () => window.removeEventListener('keydown', onKey)
   }, [order])
 
+  // Orders need a login: sign in, then come back here (the basket stays).
+  function signInFirst() {
+    returnAfterSignIn('/checkout') // the sign-in page says why
+    navigate('/login')
+  }
+
   async function onSubmit(e) {
     e.preventDefault()
     if (busy) return
+    if (!user) { signInFirst(); return }
     if (!cart.length) { toast(t('checkout.emptyCart'), 'error'); return }
     if (!ordersOpen) { toast(t('checkout.closed'), 'error'); return }
     if (when === 'scheduled' && (!day || !slot)) {
@@ -162,6 +171,12 @@ export default function Checkout() {
       else clear()
       setOrder(data.order)
     } catch (err) {
+      if (err.code === 'login_required') {
+        // the login ended (e.g. after 30 days): the page still thought it was signed in
+        await refresh()
+        signInFirst()
+        return
+      }
       if (err.code === 'validation' && err.data?.fields) {
         const fe = keysFromServer(err.data.fields)
         setErrors(fe)
@@ -182,6 +197,7 @@ export default function Checkout() {
       const why = err.data?.fields?.discountCode
       if (why) { setCode(''); setCodeError(fill(t(CODE_ERRORS[why] || 'disc.notFound'), { min: err.data?.minTotal ?? '' })) }
       toast(err.code === 'not_enough_stock' ? t('stock.notEnough')
+        : err.code === 'too_many_open_orders' ? fill(t('checkout.tooManyOpen'), { max: err.data?.max ?? '' })
         : err.code === 'slot_full' ? t('when.full')
         : err.data?.fields?.deliverySlot || err.data?.fields?.deliveryDate ? t('when.gone')
         : errorMessage(t, err), 'error')

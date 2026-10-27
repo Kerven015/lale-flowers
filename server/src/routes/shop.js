@@ -2,17 +2,35 @@
 import crypto from 'node:crypto'
 import { LANGS, SHOP } from '../config.js'
 import { pool, query, transaction } from '../db.js'
-import { HttpError, badRequest, sendJson } from '../http.js'
+import { HttpError, badRequest, clientIp, sendJson } from '../http.js'
 import { checkDelivery, deliveryCalendar } from '../delivery.js'
 import { recordMovement } from '../inventory.js'
 import { basketFromBody, priceOrder } from '../pricing.js'
 import { PRODUCT_COLUMNS, toProduct } from '../products.js'
-import { limit, optionalCustomer } from '../security.js'
+import { failureLimit, limit, optionalCustomer, requireCustomer } from '../security.js'
 import { getShopSettings } from '../settings.js'
 import { email, oneOf, phone, text } from '../validate.js'
 import { json } from './common.js'
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O, 1/I
+// Orders a customer may have waiting at the same time (not done or cancelled).
+export const MAX_OPEN_ORDERS = 5
+// Discount codes that do not exist, per IP address: stops guessing codes.
+const codeFailures = failureLimit('discount-code', 20, 10)
+
+// priceOrder, but a guessed code that does not exist is counted.
+async function priceWithCode(ctx, db, options) {
+  if (!options.discountCode.trim()) return priceOrder(db, options)
+  const ip = clientIp(ctx.req)
+  codeFailures.check(ctx, ip)
+  try {
+    return await priceOrder(db, options)
+  } catch (err) {
+    if (err.extra?.fields?.discountCode === 'not_found') codeFailures.fail(ip)
+    throw err
+  }
+}
+
 const newCode = () => 'LG-' + Array.from({ length: 8 }, () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]).join('')
 
 export function orderForCustomer(o, items) {
@@ -110,7 +128,7 @@ export function register(router) {
     const errors = {}
     const qtyById = basketFromBody(ctx.body.items, errors, { maxLines: SHOP.maxOrderLines, maxQty: SHOP.maxQty })
     if (Object.keys(errors).length) throw badRequest(errors)
-    const q = await priceOrder(pool, {
+    const q = await priceWithCode(ctx, pool, {
       qtyById,
       deliveryType: ctx.body.deliveryType === 'pickup' ? 'pickup' : 'delivery',
       discountCode: typeof ctx.body.discountCode === 'string' ? ctx.body.discountCode.slice(0, 40) : '',
@@ -125,7 +143,8 @@ export function register(router) {
   })
 
   // Place an order. Prices always come from the database, never from the browser.
-  router.post('/api/orders', json(), limit('order', 30, 10), optionalCustomer, async (ctx) => {
+  // Only for logged-in customers: a stranger cannot empty the stock with fake orders.
+  router.post('/api/orders', json(), limit('order', 30, 10), requireCustomer, async (ctx) => {
     const b = ctx.body
     const errors = {}
     const deliveryType = oneOf(errors, b, 'deliveryType', ['delivery', 'pickup'], 'delivery')
@@ -148,9 +167,14 @@ export function register(router) {
     if (!settings.ordersOpen) throw new HttpError(409, 'orders_closed')
 
     const order = await transaction(async (db) => {
+      // the customer row lock makes two orders at the same moment wait for each other
+      await db.query('SELECT 1 FROM customers WHERE id = $1 FOR UPDATE', [ctx.customerId])
+      const open = await db.query(
+        `SELECT count(*)::int AS n FROM orders WHERE customer_id = $1 AND status NOT IN ('done', 'cancelled')`, [ctx.customerId])
+      if (open.rows[0].n >= MAX_OPEN_ORDERS) throw new HttpError(409, 'too_many_open_orders', { max: MAX_OPEN_ORDERS })
       const when = await checkDelivery(db, settings, b, errors)
       if (Object.keys(errors).length) throw badRequest(errors)
-      const price = await priceOrder(db, {
+      const price = await priceWithCode(ctx, db, {
         qtyById, deliveryType, customerId: ctx.customerId, lock: true,
         discountCode: typeof b.discountCode === 'string' ? b.discountCode.slice(0, 40) : '',
       })
@@ -167,7 +191,7 @@ export function register(router) {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
              RETURNING id, code, status, created_at, delivery_type, payment, subtotal, delivery_fee, total, discount, discount_code,
                delivery_date, delivery_slot`,
-            [newCode(), ctx.customerId || null, customer.first, customer.last, customer.phone, customer.email,
+            [newCode(), ctx.customerId, customer.first, customer.last, customer.phone, customer.email,
               customer.city, deliveryType === 'pickup' ? '' : customer.address, customer.notes,
               deliveryType, payment, lang, subtotal, deliveryFee, total, discount, price.discountCode,
               when.date, when.slot, cardMessage],

@@ -2,7 +2,7 @@
 import { query, transaction } from '../db.js'
 import { HttpError, badRequest, sendJson } from '../http.js'
 import { PRODUCT_COLUMNS, checkProductForm, editedProductFields, newProductFields, toProduct } from '../products.js'
-import { endOtherSessions, endSession, hashPassword, limit, randomPassword, requireAdmin, startSession, verifyDummy, verifyPassword } from '../security.js'
+import { ADMIN_PASSWORD_MIN, endOtherSessions, endSession, failureLimit, hashPassword, limit, randomPassword, requireAdmin, startSession, verifyDummy, verifyPassword } from '../security.js'
 import { CODE_RE, normalizeCode } from '../pricing.js'
 import { checkShopSettings, getShopSettings, saveShopSettings } from '../settings.js'
 import { commitPhotos, copyPhotos, preparePhotos, removePhotos } from '../uploads.js'
@@ -12,6 +12,9 @@ import { adminSettings, dayText, itemsFor } from './shop.js'
 import { json } from './common.js'
 
 const ADMIN_HOURS = 12
+const adminKey = (ctx) => String(ctx.body?.username || '').trim().toLowerCase().slice(0, 100)
+// wrong passwords for one admin name from all IP addresses together
+const adminFailures = failureLimit('admin-account', 20, 60)
 const STATUSES = ['new', 'confirmed', 'preparing', 'delivering', 'done', 'cancelled']
 const STATUS_GROUPS = {
   new: ['new'],
@@ -158,12 +161,14 @@ async function withPhotos(body, fn) {
 
 export function register(router) {
   // ---- login -------------------------------------------------------------------
-  router.post('/api/admin/login', json(), limit('admin-login', 10, 15, (ctx) => String(ctx.body?.username || '').trim().toLowerCase()), async (ctx) => {
+  router.post('/api/admin/login', json(), limit('admin-login-ip', 30, 15), limit('admin-login', 10, 15, adminKey), async (ctx) => {
     const username = String(ctx.body.username || '').trim().slice(0, 100)
+    adminFailures.check(ctx, adminKey(ctx))
     const password = typeof ctx.body.password === 'string' ? ctx.body.password.slice(0, 200) : ''
     const { rows } = await query('SELECT id, username, password_hash FROM admins WHERE lower(username) = lower($1)', [username])
     const ok = rows[0] ? await verifyPassword(password, rows[0].password_hash) : await verifyDummy(password)
     if (!ok) {
+      adminFailures.fail(adminKey(ctx))
       await logAdmin(ctx, 'admin.login_failed', '', { username })
       throw new HttpError(401, 'invalid_credentials')
     }
@@ -188,7 +193,7 @@ export function register(router) {
   router.post('/api/admin/password', json(), requireAdmin, limit('admin-password', 10, 15), async (ctx) => {
     const current = typeof ctx.body.current === 'string' ? ctx.body.current : ''
     const next = typeof ctx.body.next === 'string' ? ctx.body.next : ''
-    if (next.length < 8 || next.length > 200) throw badRequest({ next: 'too_short' })
+    if (next.length < ADMIN_PASSWORD_MIN || next.length > 200) throw badRequest({ next: 'too_short' })
     const { rows } = await query('SELECT password_hash FROM admins WHERE id = $1', [ctx.adminId])
     if (!rows[0] || !(await verifyPassword(current, rows[0].password_hash))) throw new HttpError(401, 'invalid_credentials')
     await query('UPDATE admins SET password_hash = $2 WHERE id = $1', [ctx.adminId, await hashPassword(next)])

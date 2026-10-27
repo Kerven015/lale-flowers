@@ -340,7 +340,7 @@ describe('activity log', () => {
     const c = await customer()
     await adminCall('POST', `/api/admin/customers/${c.id}/password`)
     await setSettings({ deliveryPrice: 31 })
-    const o = await placeOrder(c, [{ id, qty: 1 }])
+    const o = await placeOrder(await customer(), [{ id, qty: 1 }]) // c was logged out by the new password
     await setStatus(o.id, 'confirmed')
 
     const { data } = await adminCall('GET', '/api/admin/log')
