@@ -202,11 +202,10 @@ server's ones.
 ## Using the shop
 
 - **Admin panel:** `https://lalegulleri.tm/admin`
-  - **Orders:** new orders appear by themselves within about 15 seconds, with a sound (the bell button turns it on and off). Keep the page open in a tab. Press "Next: …" to move an order along (Confirmed → Being prepared → On the way → Delivered). The customer sees the status on the Track page and in their profile.
+  - **Orders:** new orders appear by themselves within about 15 seconds, with a sound (the bell button turns it on and off). Keep the page open in a tab. Press "Next: …" to move an order along (Confirmed → Being prepared → On the way → Delivered). The customer sees the status on the Track page and in their profile. "Clear history" deletes delivered / cancelled orders (all, or only older ones); orders in progress are never deleted, and deleting cannot be undone.
   - **Flowers:** add, edit and delete flowers, change prices, and mark a flower as out of stock. Changes are visible to every customer straight away.
   - **Messages:** what people send with the contact form.
   - **Customers:** if someone forgets their password, press "New password" and tell them the temporary password by phone. They can change it in their profile.
-  - **Subscribers:** newsletter emails. "Copy all addresses" copies them for your email program.
 - **The admin login lasts 12 hours** or until the browser closes.
 
 ## If something does not work

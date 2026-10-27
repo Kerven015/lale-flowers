@@ -35,7 +35,7 @@ const shopDay = (offset = 0) => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ashgabat' }).format(d)
 }
 
-function OrderCard({ order, L, onChange }) {
+function OrderCard({ order, L, onChange, onDelete }) {
   const { t, lang } = useI18n()
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState(order.adminNote || '')
@@ -143,8 +143,74 @@ function OrderCard({ order, L, onChange }) {
           </button>
         )}
         <a className="btn btn-outline btn-sm" href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" size={16} />{L.ordCall}</a>
+        {/* only finished orders can be removed from the history */}
+        {(order.status === 'done' || order.status === 'cancelled') && (
+          <button
+            type="button"
+            className="btn btn-outline btn-sm adm-cus-delete"
+            disabled={busy}
+            aria-label={`${L.del} – ${order.code}`}
+            onClick={() => { if (window.confirm(L.ordDeleteConfirm.replace('{code}', order.code))) onDelete(order) }}
+          >
+            <Icon name="trash" size={16} />{L.del}
+          </button>
+        )}
       </div>
     </article>
+  )
+}
+
+// "Clear history": delete finished orders (delivered / cancelled), optionally
+// only older ones. Shows how many will go before asking to confirm.
+function ClearHistory({ L, call, onDone }) {
+  const { toast } = useToast()
+  const [statuses, setStatuses] = useState(['done', 'cancelled'])
+  const [days, setDays] = useState(0)
+  const [count, setCount] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!statuses.length) { setCount(0); return undefined }
+    let alive = true
+    setCount(null)
+    call('/api/admin/orders/clear', { method: 'POST', body: { statuses, olderThanDays: days, dryRun: true } })
+      .then((d) => { if (alive) setCount(d.count) })
+      .catch(() => { if (alive) setCount(0) })
+    return () => { alive = false }
+  }, [call, statuses, days])
+
+  const toggle = (s) => setStatuses((list) => (list.includes(s) ? list.filter((x) => x !== s) : [...list, s]))
+
+  async function clear() {
+    if (!count || !window.confirm(L.ordClearConfirm.replace('{n}', count))) return
+    setBusy(true)
+    try {
+      const d = await call('/api/admin/orders/clear', { method: 'POST', body: { statuses, olderThanDays: days } })
+      toast(L.ordCleared.replace('{n}', d.deleted))
+      onDone()
+    } catch {
+      toast(L.loadFailed, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="summary adm-clear" style={{ position: 'static' }} aria-label={L.ordClearTitle}>
+      <h3 className="with-ico"><Icon name="trash" size={18} />{L.ordClearTitle}</h3>
+      <p className="muted">{L.ordClearHint}</p>
+      <div className="adm-clear-row">
+        <label className="check"><input type="checkbox" checked={statuses.includes('done')} onChange={() => toggle('done')} /><span>{L.fDone}</span></label>
+        <label className="check"><input type="checkbox" checked={statuses.includes('cancelled')} onChange={() => toggle('cancelled')} /><span>{L.fCancelled}</span></label>
+        <select className="field" aria-label={L.ordClearAge} value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <option value={0}>{L.ordClearAll}</option>
+          {[30, 90, 365].map((d) => <option key={d} value={d}>{L.ordClearOlder.replace('{n}', d)}</option>)}
+        </select>
+      </div>
+      <button type="button" className="btn btn-outline btn-sm adm-cus-delete" disabled={busy || !count} onClick={clear}>
+        <Icon name="trash" size={16} />{count === null ? '…' : L.ordClearBtn.replace('{n}', count)}
+      </button>
+    </section>
   )
 }
 
@@ -160,6 +226,7 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
   const [total, setTotal] = useState(0)
   const [state, setState] = useState('loading') // loading | ready | error
   const [more, setMore] = useState(false)
+  const [showClear, setShowClear] = useState(false)
   const req = useRef(0)
 
   // wait until typing stops before searching
@@ -206,6 +273,19 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
     }
   }, [call, toast, L, onChanged, reloadProducts, load])
 
+  const remove = useCallback(async (order) => {
+    try {
+      await call(`/api/admin/orders/${order.id}`, { method: 'DELETE' })
+      setOrders((list) => list.filter((o) => o.id !== order.id))
+      setTotal((n) => Math.max(0, n - 1))
+      toast(L.ordDeleted)
+      onChanged()
+    } catch (err) {
+      toast(err?.code === 'order_active' ? L.ordDeleteActive : L.loadFailed, 'error')
+      if (err?.code === 'order_active') load(0)
+    }
+  }, [call, toast, L, onChanged, load])
+
   const count = (key) => (key === 'new' ? summary?.newOrders : key === 'active' ? summary?.activeOrders : null)
 
   return (
@@ -238,7 +318,11 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
         <button type="button" className="btn btn-outline btn-sm" onClick={() => { load(0); onChanged() }}>
           <Icon name="refresh" size={16} />{L.refresh}
         </button>
+        <button type="button" className="btn btn-outline btn-sm" aria-expanded={showClear} onClick={() => setShowClear((v) => !v)}>
+          <Icon name="trash" size={16} />{L.ordClearTitle}
+        </button>
       </div>
+      {showClear && <ClearHistory L={L} call={call} onDone={() => { setShowClear(false); load(0); onChanged() }} />}
 
       {state === 'loading' && <p className="muted" role="status">{t('loading.wait')}</p>}
       {state === 'error' && (
@@ -251,7 +335,7 @@ export default function AdminOrders({ L, call, summary, version, onChanged }) {
         <div className="empty-state"><div className="es-icon"><Icon name="orders" size={32} /></div><h3>{L.ordEmpty}</h3></div>
       )}
       <div className="adm-order-list">
-        {orders.map((o) => <OrderCard key={o.id} order={o} L={L} onChange={change} />)}
+        {orders.map((o) => <OrderCard key={o.id} order={o} L={L} onChange={change} onDelete={remove} />)}
       </div>
       {state === 'ready' && orders.length < total && (
         <button type="button" className="btn btn-outline btn-block" style={{ marginTop: 16 }} disabled={more} onClick={() => load(orders.length)}>

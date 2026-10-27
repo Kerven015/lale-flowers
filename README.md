@@ -15,7 +15,7 @@ Website (React + Vite) and shop server (Node.js + PostgreSQL) in one project.
 
 ## What is stored where
 
-- **On the server (PostgreSQL):** flowers and prices, orders and their status, customer accounts, contact messages, newsletter emails, admin logins.
+- **On the server (PostgreSQL):** flowers and prices, orders and their status, customer accounts, contact messages, admin logins.
 - **Uploaded photos:** `server/uploads/`
 - **In each visitor's browser:** only the basket, favourites, language, theme and chosen city.
 
@@ -97,12 +97,12 @@ change while `npm run dev` is running.
 | `/track` | Order tracking by order code |
 | `/about` `/contact` `/delivery` | Info |
 | `/login` `/register` `/profile` | Customer account |
-| `/admin` | Admin panel (orders, flowers, messages, customers, newsletter) |
+| `/admin` | Admin panel (overview, orders, flowers, messages, customers, discounts, settings, log) |
 
 ## Shop server API (for reference)
 
 Public: `GET /api/products`, `POST /api/orders`, `GET /api/orders/:code`,
-`POST /api/contact`, `POST /api/newsletter`, `/api/auth/*`, `GET /api/account/orders`.
+`POST /api/contact`, `/api/auth/*`, `GET /api/account/orders`.
 Admin (login required): `/api/admin/*`.
 
 **Continue with Google** (optional): set `GOOGLE_CLIENT_ID` in `server/.env`,

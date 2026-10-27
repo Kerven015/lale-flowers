@@ -1,5 +1,5 @@
-// Admin: contact-form messages, customers (with "new password") and newsletter
-// sign-ups.
+// Admin: contact-form messages and customers (with "new password", block,
+// their orders).
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '../../contexts/I18nContext'
 import { useToast } from '../../contexts/ToastContext'
@@ -226,48 +226,6 @@ export function AdminCustomers({ L, call }) {
           </div>
         </article>
       ))}
-    </div>
-  )
-}
-
-// ---- newsletter -----------------------------------------------------------------------
-export function AdminSubscribers({ L, call }) {
-  const { lang } = useI18n()
-  const { toast } = useToast()
-  const [list, setList, state, reload] = useList(call, '/api/admin/subscribers', 'subscribers')
-
-  async function remove(s) {
-    if (!window.confirm(L.subDeleteConfirm)) return
-    try {
-      await call(`/api/admin/subscribers/${s.id}`, { method: 'DELETE' })
-      setList((l) => l.filter((x) => x.id !== s.id))
-    } catch { toast(L.loadFailed, 'error') }
-  }
-
-  return (
-    <div className="adm-list">
-      {state === 'ready' && list.length > 0 && (
-        <div className="adm-toolbar">
-          <strong>{L.subCount.replace('{n}', list.length)}</strong>
-          <button type="button" className="btn btn-outline btn-sm" onClick={async () => toast((await copyText(list.map((s) => s.email).join(', '))) ? L.copied : L.loadFailed)}>
-            <Icon name="copy" size={16} />{L.subCopyAll}
-          </button>
-        </div>
-      )}
-      <ListState state={state} empty={state === 'ready' && !list.length ? L.subEmpty : ''} L={L} onRetry={reload} icon="mail" />
-      {list.length > 0 && (
-        <ul className="adm-subs">
-          {list.map((s) => (
-            <li key={s.id}>
-              <a href={`mailto:${s.email}`}>{s.email}</a>
-              <span className="muted">{orderDate(s.createdAt, lang)}</span>
-              <button type="button" className="adm-act adm-del" aria-label={`${L.msgDelete} – ${s.email}`} title={L.msgDelete} onClick={() => remove(s)}>
-                <Icon name="trash" size={16} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }
