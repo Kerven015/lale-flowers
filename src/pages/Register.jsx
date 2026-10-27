@@ -13,6 +13,13 @@ import { pendingNotice } from '../store/cartSlice'
 import { LOGO } from '../utils/assets'
 
 
+// "I agree with the {link}": the link opens the privacy policy in a new tab,
+// so the half-filled form stays as it is.
+function AgreeText({ t }) {
+  const [before, after = ''] = t('auth.agree').split('{link}')
+  return <>{before}<a href={`${import.meta.env.BASE_URL}privacy`} target="_blank" rel="noopener">{t('auth.agreeLink')}</a>{after}</>
+}
+
 export default function Register() {
   const { t, lang } = useI18n()
   const { register, user } = useAuth()
@@ -90,7 +97,7 @@ export default function Register() {
           </div>
           <label className="check" style={{ margin: '18px 0 6px' }}>
             <input type="checkbox" name="agree" aria-invalid={fieldErrors.agree ? true : undefined} aria-describedby={fieldErrors.agree ? 'reg-agree-err' : undefined} />
-            <span>{t('auth.agree')}</span>
+            <span><AgreeText t={t} /></span>
           </label>
           {fieldErrors.agree && <small id="reg-agree-err" className="field-error" style={{ display: 'block', marginBottom: 12 }}>{t(fieldErrors.agree)}</small>}
           {error && <p className="form-error" role="alert">{errorMessage(t, error)}</p>}

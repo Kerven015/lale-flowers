@@ -16,6 +16,7 @@ import Register from './pages/Register'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import Track from './pages/Track'
+import Privacy from './pages/Privacy'
 import { useI18n } from './contexts/I18nContext'
 
 // The admin panel is only downloaded when someone opens /admin, so customers
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/track" element={<Track />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin.html" element={<Navigate to="/admin" replace />} />
           <Route path="/index.html" element={<Navigate to="/" replace />} />

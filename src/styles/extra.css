@@ -155,3 +155,12 @@
   30%, 50%, 70% { transform: translateX(-6px); }
   40%, 60% { transform: translateX(6px); }
 }
+
+/* ---- privacy policy (/privacy) ---- */
+.legal { max-width: 760px; line-height: 1.7; }
+.legal-intro { font-size: 1.08rem; margin: 0 0 8px; }
+.legal h2 { font-size: 1.3rem; margin: 32px 0 10px; }
+.legal p { margin: 0 0 .9em; }
+.legal ul { margin: 0 0 .9em; padding-left: 1.25em; list-style: disc; }
+.legal li { margin: 0 0 .45em; }
+.legal a { color: var(--red); text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
