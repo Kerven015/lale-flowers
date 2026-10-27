@@ -1211,7 +1211,7 @@ main { animation-fill-mode: backwards; }
   .site-header .header-inner { gap: 6px; padding: 0; }
   .site-header .brand { margin-right: 0; gap: 7px; min-width: 0; flex-shrink: 1; }
   .site-header .brand-logo { width: 34px; height: 34px; border-radius: 10px; }
-  .site-header .brand-name { font-size: .76rem; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .site-header .brand-name { font-size: .76rem; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; } /* room for the dots of Ä, Ü */
   .site-header .header-actions { gap: 0; }
   .site-header .icon-btn { width: 36px; height: 36px; }
   .site-header .burger { width: 38px; height: 38px; flex: none; }

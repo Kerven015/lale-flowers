@@ -55,6 +55,7 @@ export default function Footer() {
             <Link to="/contact">{t('nav.contact')}</Link>
             <Link to="/contact">{t('foot.faq')}</Link>
             <Link to="/track">{t('top.track')}</Link>
+            <Link to="/privacy">{t('privacy.title')}</Link>
             {user ? <Link to="/profile">{t('top.account')}</Link> : <Link to="/login">{t('auth.loginBtn')}</Link>}
           </div>
         </div>

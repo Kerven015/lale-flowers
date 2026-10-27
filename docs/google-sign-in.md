@@ -36,8 +36,9 @@ This is what customers see in the Google pop-up.
 5. **Contact information:** your email → **Next** → accept the policy →
    **Create**.
 6. Optional but recommended (in **Branding**): the app logo, the
-   **Application home page** (`https://your-domain`), **privacy policy** and
-   **terms of service** links, and under **Authorized domains** your domain
+   **Application home page** (`https://your-domain`), the **privacy policy**
+   link (`https://your-domain/privacy`, the shop has this page), the **terms
+   of service** link (optional), and under **Authorized domains** your domain
    (e.g. `lalegulleri.tm`). → **Save**.
 
 Only the basic scopes are used (`openid`, `email`, `profile`), so Google does
