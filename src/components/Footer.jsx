@@ -1,56 +1,18 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, errorMessage } from '../api'
 import { useI18n } from '../contexts/I18nContext'
-import { useToast } from '../contexts/ToastContext'
 import { FLOWER_TYPES } from '../data/navigation'
 import Icon from './Icons'
 import { useAuth, useSettings } from '../store/hooks'
-import { EMAIL_RE } from '../utils/formCheck'
 import { LOGO } from '../utils/assets'
-
 
 export default function Footer() {
   const { t } = useI18n()
-  const { toast } = useToast()
   const { phone, email, instagram } = useSettings()
   const { user } = useAuth()
   const year = new Date().getFullYear()
-  const [busy, setBusy] = useState(false)
-
-  async function subscribe(e) {
-    e.preventDefault()
-    if (busy) return
-    const form = e.target
-    const email = form.email.value.trim()
-    if (!EMAIL_RE.test(email)) { toast(t('auth.errEmail'), 'error'); form.email.focus(); return }
-    setBusy(true)
-    try {
-      await api('/api/newsletter', { method: 'POST', body: { email } })
-      toast(t('news.ok'))
-      form.reset()
-    } catch (err) {
-      toast(err.code === 'validation' ? t('auth.errEmail') : errorMessage(t, err), 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <footer className="site-footer">
-      <div className="footer-news">
-        <div className="container footer-news-inner">
-          <div>
-            <h3>{t('foot.newsTitle')}</h3>
-            <p>{t('news.text')}</p>
-          </div>
-          <form onSubmit={subscribe} noValidate>
-            <input type="email" name="email" placeholder={t('news.ph')} aria-label={t('news.ph')} autoComplete="email" maxLength={254} />
-            <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? t('form.sending') : t('news.btn')}</button>
-          </form>
-        </div>
-      </div>
-
       <div className="container">
         <div className="footer-top">
           <div>

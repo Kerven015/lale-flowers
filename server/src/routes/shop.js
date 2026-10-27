@@ -1,5 +1,4 @@
-// Public shop API: products, placing and tracking orders, contact form,
-// newsletter.
+// Public shop API: products, placing and tracking orders, contact form.
 import crypto from 'node:crypto'
 import { LANGS, SHOP } from '../config.js'
 import { pool, query, transaction } from '../db.js'
@@ -216,14 +215,6 @@ export function register(router) {
     }
     if (Object.keys(errors).length) throw badRequest(errors)
     await query('INSERT INTO messages (name, email, phone, message) VALUES ($1, $2, $3, $4)', [msg.name, msg.email, msg.phone, msg.message])
-    sendJson(ctx.res, 201, { ok: true })
-  })
-
-  router.post('/api/newsletter', json(), limit('newsletter', 30, 10), async (ctx) => {
-    const errors = {}
-    const addr = email(errors, ctx.body, 'email')
-    if (Object.keys(errors).length) throw badRequest(errors)
-    await query('INSERT INTO subscribers (email) VALUES ($1) ON CONFLICT DO NOTHING', [addr])
     sendJson(ctx.res, 201, { ok: true })
   })
 }

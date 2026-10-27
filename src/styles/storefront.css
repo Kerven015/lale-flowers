@@ -334,30 +334,6 @@ main { animation-fill-mode: backwards; }
 .product-card:hover .product-name a { color: var(--red); }
 
 /* ---------- Footer ---------- */
-.footer-news {
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(224, 27, 36, .09), rgba(224, 27, 36, .02));
-}
-.footer-news-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 30px 0;
-}
-.footer-news h3 { margin: 0 0 4px; }
-.footer-news p { margin: 0; color: var(--muted); font-size: .92rem; }
-.footer-news form { display: flex; gap: 10px; flex-wrap: wrap; }
-.footer-news input {
-  min-width: 280px;
-  padding: 13px 20px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  outline: none;
-  transition: border-color var(--tr), box-shadow var(--tr);
-}
-.footer-news input:focus { border-color: var(--red); box-shadow: var(--ring); }
 .footer-social-title {
   margin: 20px 0 0;
   font-size: .78rem;
@@ -559,10 +535,6 @@ main { animation-fill-mode: backwards; }
   .trust-row { gap: 8px; margin-bottom: 18px; }
   .trust-row li { padding: 10px; font-size: .66rem; gap: 8px; }
   .listing-toolbar { padding: 8px; }
-  .footer-news-inner { flex-direction: column; align-items: stretch; text-align: center; padding: 26px 0; }
-  .footer-news form { flex-direction: column; }
-  .footer-news input { min-width: 0; width: 100%; }
-  .footer-news .btn { width: 100%; }
 }
 
 /* ---------- Grid: 4 / 3 / 2 columns ---------- */

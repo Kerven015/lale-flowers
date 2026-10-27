@@ -95,10 +95,6 @@ export const I18N = {
       'about.f3t': 'Sargydyňyz 2 sagat içinde eltip berilýär.',
 
       'news.title': 'Täzeliklerden habardar boluň',
-      'news.text': 'Arzanladyşlar we täze buketler barada ilkinji bolup biliň.',
-      'news.ph': 'E-poçta salgyňyz',
-      'news.btn': 'Ýazyl',
-      'news.ok': 'Üstünlikli ýazyldyňyz',
 
       'foot.desc': 'Lale gülleri — Aşgabatdaky iň owadan gül dükany. Täze güller, çalt eltip bermek we ýürekden hyzmat.',
       'foot.catalog': 'Katalog',
@@ -442,7 +438,6 @@ export const I18N = {
       'track.none': "Bu belgili sargyt tapylmady. Belgini barlap, gaýtadan synanyşyň.",
       'track.status': "Ýagdaýy",
       'track.items': "Önümler",
-      'foot.newsTitle': "Bizden täzelikler",
       'foot.contact': "Habarlaşmak",
       'foot.social': "Bizi yzarlaň",
       'product.noReviews': 'Bu önüm barada entek teswir ýok.',
@@ -584,10 +579,6 @@ export const I18N = {
       'about.f3t': 'Ваш заказ доставим в течение 2 часов.',
 
       'news.title': 'Будьте в курсе новостей',
-      'news.text': 'Узнавайте первыми о скидках и новых букетах.',
-      'news.ph': 'Ваш e-mail',
-      'news.btn': 'Подписаться',
-      'news.ok': 'Вы успешно подписались',
 
       'foot.desc': 'Lale gülleri — самый красивый цветочный магазин Ашхабада. Свежие цветы, быстрая доставка и душевный сервис.',
       'foot.catalog': 'Каталог',
@@ -931,7 +922,6 @@ export const I18N = {
       'track.none': "Заказ с таким номером не найден. Проверьте номер и попробуйте ещё раз.",
       'track.status': "Статус",
       'track.items': "Товары",
-      'foot.newsTitle': "Новости от нас",
       'foot.contact': "Связаться с нами",
       'foot.social': "Мы в соцсетях",
       'product.noReviews': 'У этого товара пока нет отзывов.',
@@ -1073,10 +1063,6 @@ export const I18N = {
       'about.f3t': 'Siparişiniz 2 saat içinde teslim edilir.',
 
       'news.title': 'Haberlerden haberdar olun',
-      'news.text': 'İndirimler ve yeni buketlerden ilk siz haberdar olun.',
-      'news.ph': 'E-posta adresiniz',
-      'news.btn': 'Abone ol',
-      'news.ok': 'Başarıyla abone oldunuz',
 
       'foot.desc': 'Lale gülleri — Aşkabat’ın en güzel çiçek mağazası. Taze çiçekler, hızlı teslimat ve gönülden hizmet.',
       'foot.catalog': 'Katalog',
@@ -1420,7 +1406,6 @@ export const I18N = {
       'track.none': "Bu numarada sipariş bulunamadı. Numarayı kontrol edip tekrar deneyin.",
       'track.status': "Durum",
       'track.items': "Ürünler",
-      'foot.newsTitle': "Bizden haberler",
       'foot.contact': "Bize ulaşın",
       'foot.social': "Bizi takip edin",
       'product.noReviews': 'Bu ürün için henüz yorum yok.',

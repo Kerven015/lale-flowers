@@ -367,6 +367,39 @@ export function register(router) {
     sendJson(ctx.res, 200, { orders: rows.map((o) => adminOrder(o, items.get(o.id))), total: rows[0]?.total_count || 0 })
   })
 
+  // ---- order history clean-up: only finished orders (delivered / cancelled) can
+  // be deleted; orders still in progress are never touched. Deleting cannot be
+  // undone: the orders leave the statistics, the customer's "My orders" and
+  // order tracking. (Stock and discount-code counts are not changed.)
+  router.delete('/api/admin/orders/:id', requireAdmin, async (ctx) => {
+    const id = idParam(ctx)
+    const { rows } = await query(`DELETE FROM orders WHERE id = $1 AND status IN ('done', 'cancelled') RETURNING code, status`, [id])
+    if (!rows[0]) {
+      const exists = (await query('SELECT 1 FROM orders WHERE id = $1', [id])).rows[0]
+      throw exists ? new HttpError(409, 'order_active') : new HttpError(404, 'not_found')
+    }
+    await logAdmin(ctx, 'order.delete', `order:${rows[0].code}`, { status: rows[0].status })
+    sendJson(ctx.res, 200, { ok: true })
+  })
+
+  // Clear finished orders: { statuses: ['done', 'cancelled'], olderThanDays: 0 | 30 | 90 | 365, dryRun }
+  // dryRun = only count them (the panel shows the number before asking).
+  router.post('/api/admin/orders/clear', requireAdmin, json(), async (ctx) => {
+    const b = ctx.body
+    const statuses = Array.isArray(b.statuses) ? ['done', 'cancelled'].filter((s) => b.statuses.includes(s)) : []
+    const days = Number(b.olderThanDays ?? 0)
+    if (!statuses.length) throw badRequest({ statuses: 'required' })
+    if (![0, 30, 90, 365].includes(days)) throw badRequest({ olderThanDays: 'invalid' })
+    const where = `status = ANY($1::text[]) AND created_at < now() - make_interval(days => $2)`
+    if (b.dryRun === true) {
+      const { rows } = await query(`SELECT count(*)::int AS n FROM orders WHERE ${where}`, [statuses, days])
+      return sendJson(ctx.res, 200, { count: rows[0].n })
+    }
+    const { rowCount } = await query(`DELETE FROM orders WHERE ${where}`, [statuses, days])
+    if (rowCount) await logAdmin(ctx, 'orders.clear', 'orders', { deleted: rowCount, statuses, olderThanDays: days })
+    sendJson(ctx.res, 200, { deleted: rowCount })
+  })
+
   router.patch('/api/admin/orders/:id', requireAdmin, json(), async (ctx) => {
     const id = idParam(ctx)
     const sets = []
@@ -552,15 +585,4 @@ export function register(router) {
     sendJson(ctx.res, 200, { ok: true })
   })
 
-  // ---- newsletter -------------------------------------------------------------------------
-  router.get('/api/admin/subscribers', requireAdmin, async (ctx) => {
-    const { rows } = await query('SELECT id, email, created_at FROM subscribers ORDER BY created_at DESC')
-    sendJson(ctx.res, 200, { subscribers: rows.map((s) => ({ id: s.id, email: s.email, createdAt: s.created_at })) })
-  })
-
-  router.delete('/api/admin/subscribers/:id', requireAdmin, async (ctx) => {
-    const { rowCount } = await query('DELETE FROM subscribers WHERE id = $1', [idParam(ctx)])
-    if (rowCount) await logAdmin(ctx, 'subscriber.delete', `subscriber:${ctx.params.id}`)
-    sendJson(ctx.res, 200, { ok: true })
-  })
 }

@@ -241,6 +241,7 @@
 .adm-order-link .ico { color: var(--red); flex: none; }
 .adm-order-link:hover { color: var(--red); }
 .adm-order-line { font-weight: 700; font-size: .9rem; }
+.adm-order-line.with-ico { display: flex; } /* one line each, not side by side */
 .adm-order-line + .adm-order-line, .adm-order-address + .adm-order-line { margin-top: 4px; }
 .adm-order-address { margin-top: 4px; font-size: .9rem; line-height: 1.45; overflow-wrap: anywhere; }
 .adm-order-items { margin: 0 0 12px; padding: 10px 0 0; border-top: 1px solid var(--border); }
@@ -271,13 +272,6 @@
 .adm-temp-pass code { font-size: 1.1rem; font-weight: 800; letter-spacing: .06em; user-select: all; }
 
 /* newsletter */
-.adm-subs { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-.adm-subs li { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-.adm-subs li:last-child { border-bottom: 0; }
-.adm-subs li a { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-.adm-subs li a:hover { color: var(--red); }
-.adm-subs .muted { font-size: .8rem; white-space: nowrap; }
-.adm-subs .adm-act { width: 34px; height: 34px; flex: none; }
 
 /* product form: in-stock switch */
 .adm-stock { align-items: flex-start; }
@@ -394,3 +388,10 @@
 .adm-cus-orders { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .adm-cus-orders li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .85rem; }
 .adm-cus-order-side { display: inline-flex; align-items: center; gap: 10px; }
+
+/* orders: clear history */
+.adm-clear { margin-bottom: 16px; }
+.adm-clear h3 { margin: 0 0 6px; }
+.adm-clear p { margin: 0 0 12px; font-size: .88rem; }
+.adm-clear-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 14px; }
+.adm-clear-row .field { width: auto; padding: 8px 12px; }

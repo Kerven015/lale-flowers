@@ -1,4 +1,4 @@
-// Admin panel: orders, flowers, messages, customers, newsletter.
+// Admin panel: overview, orders, flowers, messages, customers, discounts, settings, log.
 // Everything is saved on the server; the login is checked by the server.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PageHead from '../components/PageHead'
@@ -11,7 +11,7 @@ import { TEXT } from './admin/texts'
 import { playChime, unlockSound } from './admin/sound'
 import AdminOrders from './admin/AdminOrders'
 import AdminProducts from './admin/AdminProducts'
-import { AdminCustomers, AdminMessages, AdminSubscribers } from './admin/AdminInbox'
+import { AdminCustomers, AdminMessages } from './admin/AdminInbox'
 import { AdminDiscounts, AdminSettings } from './admin/AdminShop'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminLog from './admin/AdminLog'
@@ -23,7 +23,6 @@ const TABS = [
   ['products', 'tabProducts', 'flower'],
   ['messages', 'tabMessages', 'inbox'],
   ['customers', 'tabCustomers', 'users'],
-  ['subscribers', 'tabSubscribers', 'mail'],
   ['discounts', 'tabDiscounts', 'percent'],
   ['settings', 'tabSettings', 'settings'],
   ['log', 'tabLog', 'list'],
@@ -208,7 +207,6 @@ export default function Admin() {
             {tab === 'products' && <AdminProducts L={L} onSessionLost={sessionLost} />}
             {tab === 'messages' && <AdminMessages L={L} call={call} onChanged={loadSummary} />}
             {tab === 'customers' && <AdminCustomers L={L} call={call} />}
-            {tab === 'subscribers' && <AdminSubscribers L={L} call={call} />}
             {tab === 'discounts' && <AdminDiscounts L={L} call={call} />}
             {tab === 'settings' && <AdminSettings L={L} call={call} />}
             {tab === 'log' && <AdminLog L={L} call={call} />}

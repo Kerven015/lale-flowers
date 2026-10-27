@@ -15,6 +15,7 @@ function detailText(e, L) {
     return [d.name, ...parts].filter(Boolean).join(' · ')
   }
   if (e.action === 'settings.update') return (d.changed || []).join(', ')
+  if (e.action === 'orders.clear') return `${d.deleted} · ${(d.statuses || []).map((x) => L[`st_${x}`] || x).join(', ')}${d.olderThanDays ? ` · > ${d.olderThanDays}` : ''}`
   if (d.name) return d.name
   if (d.email) return d.email
   return ''

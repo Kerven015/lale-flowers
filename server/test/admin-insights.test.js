@@ -397,3 +397,65 @@ describe('saving the flower form while stock changes', () => {
     assert.equal((await pool.query('SELECT stock FROM products WHERE id = $1', [id])).rows[0].stock, 3)
   })
 })
+
+describe('clearing order history', () => {
+  const del = (id) => adminCall('DELETE', `/api/admin/orders/${id}`)
+  const clear = (body) => adminCall('POST', '/api/admin/orders/clear', body)
+  const exists = async (id) => (await pool.query('SELECT 1 FROM orders WHERE id = $1', [id])).rows.length === 1
+
+  test('a delivered or cancelled order can be deleted; one in progress cannot', async () => {
+    const id = await addProduct({ stock: 5 })
+    const b = await customer()
+    const done = await placeOrder(b, [{ id, qty: 1 }])
+    const cancelled = await placeOrder(b, [{ id, qty: 1 }])
+    const active = await placeOrder(b, [{ id, qty: 1 }])
+    await setStatus(done.id, 'done')
+    await setStatus(cancelled.id, 'cancelled')
+    await setStatus(active.id, 'preparing')
+    assert.equal((await del(done.id)).status, 200)
+    assert.equal((await del(cancelled.id)).status, 200)
+    const r = await del(active.id)
+    assert.deepEqual([r.status, r.data.error], [409, 'order_active'])
+    assert.deepEqual([await exists(done.id), await exists(cancelled.id), await exists(active.id)], [false, false, true])
+    assert.equal((await del(999999)).status, 404)
+    // the flowers' stock is not changed by deleting history
+    assert.equal((await pool.query('SELECT stock FROM products WHERE id = $1', [id])).rows[0].stock, 3)
+    // gone from tracking and the customer's own list
+    assert.equal((await browser(server.base).get(`/api/orders/${done.code}`)).status, 404)
+    assert.ok(!(await b.get('/api/account/orders')).data.orders.some((o) => o.code === done.code))
+  })
+
+  test('"clear history" removes only the chosen finished orders, counts first, and is logged', async () => {
+    const id = await addProduct()
+    const b = await customer()
+    const o = {}
+    for (const k of ['oldDone', 'newDone', 'oldCancelled', 'active']) o[k] = await placeOrder(b, [{ id, qty: 1 }])
+    await setStatus(o.oldDone.id, 'done')
+    await setStatus(o.newDone.id, 'done')
+    await setStatus(o.oldCancelled.id, 'cancelled')
+    await pool.query(`UPDATE orders SET created_at = now() - interval '100 days' WHERE id = ANY($1::int[])`, [[o.oldDone.id, o.oldCancelled.id, o.active.id]])
+
+    // older than 90 days, delivered only: just oldDone
+    let r = await clear({ statuses: ['done'], olderThanDays: 90, dryRun: true })
+    assert.ok(r.data.count >= 1)
+    const before = r.data.count
+    r = await clear({ statuses: ['done'], olderThanDays: 90 })
+    assert.equal(r.data.deleted, before)
+    assert.deepEqual([await exists(o.oldDone.id), await exists(o.newDone.id), await exists(o.oldCancelled.id), await exists(o.active.id)], [false, true, true, true])
+
+    // everything finished, any age: the active (100-day-old, in progress) order still stays
+    r = await clear({ statuses: ['done', 'cancelled'], olderThanDays: 0 })
+    assert.ok(r.data.deleted >= 2)
+    assert.deepEqual([await exists(o.newDone.id), await exists(o.oldCancelled.id), await exists(o.active.id)], [false, false, true])
+
+    const log = (await adminCall('GET', '/api/admin/log')).data.entries.find((e) => e.action === 'orders.clear')
+    assert.deepEqual(log.details.statuses, ['done', 'cancelled'])
+  })
+
+  test('bad requests are refused; in-progress statuses cannot be cleared', async () => {
+    assert.equal((await clear({ statuses: [] })).status, 400)
+    assert.equal((await clear({ statuses: ['new', 'preparing'] })).status, 400) // ignored -> nothing left -> refused
+    assert.equal((await clear({ statuses: ['done'], olderThanDays: 7 })).status, 400)
+    assert.equal((await browser(server.base).post('/api/admin/orders/clear', { statuses: ['done'] })).status, 401)
+  })
+})
