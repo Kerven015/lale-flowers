@@ -30,7 +30,7 @@ This is what customers see in the Google pop-up.
 1. Menu ☰ → **APIs & Services** → **OAuth consent screen**
    (in the new console it is called **Google Auth Platform** → **Branding**).
    If you see **Get started**, click it.
-2. **App name:** `Lale Gülleri`
+2. **App name:** `Läle Gülleri`
 3. **User support email:** choose your email.
 4. **Audience:** **External** (any Google user can sign in).
 5. **Contact information:** your email → **Next** → accept the policy →
@@ -131,7 +131,7 @@ profile; changing the email needs a password.
   (`:5173`), no `/` at the end. Add the missing one and wait a few minutes.
 - Make sure the Client ID in `.env` belongs to the same project/client.
 
-**"Access blocked: this app's request is invalid" / "Access blocked: Lale Gülleri has not completed the Google verification process"**
+**"Access blocked: this app's request is invalid" / "Access blocked: Läle Gülleri has not completed the Google verification process"**
 - The app is still in **Testing** and this Google account is not a test
   user. Add it under **Audience → Test users**, or **Publish app**.
 

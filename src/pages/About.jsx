@@ -20,7 +20,7 @@ export default function About() {
               <Link className="btn btn-primary" to="/catalog">{t('pop.all')}</Link>
             </div>
             <div className="img-zoom" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <img src={LOGO} alt="Lale gülleri" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />
+              <img src={LOGO} alt="Läle gülleri" style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover' }} />
             </div>
           </div>
         </div>

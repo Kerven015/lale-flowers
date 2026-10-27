@@ -74,7 +74,7 @@ export default function Register() {
   return (
     <div className="auth-wrap">
       <div className="auth-card" style={{ width: 'min(100%, 560px)' }}>
-        <img className="auth-logo" src={LOGO} alt="Lale Gülleri" />
+        <img className="auth-logo" src={LOGO} alt="Läle Gülleri" />
         <h1>{t('auth.registerTitle')}</h1>
         {/* "… {n}% off your first order" only while that discount is on */}
         <p className="auth-sub">{firstOrderDiscount > 0 ? fill(t('auth.registerSub'), { n: firstOrderDiscount }) : t('auth.loginSub')}</p>

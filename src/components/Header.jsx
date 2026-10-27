@@ -255,8 +255,8 @@ export default function Header() {
           </button>
 
           <Link className="brand" to="/">
-            <img className="brand-logo" src={LOGO} alt="Lale gülleri logo" />
-            <span className="brand-name">Lale Gülleri<small>{t('brand.tagline')}</small></span>
+            <img className="brand-logo" src={LOGO} alt="Läle gülleri logo" />
+            <span className="brand-name">Läle Gülleri<small>{t('brand.tagline')}</small></span>
           </Link>
 
           <form className="header-search" onSubmit={submitSearch} role="search">
@@ -334,7 +334,7 @@ export default function Header() {
         <div className="side-head">
           <Link className="brand" to="/">
             <img className="brand-logo" src={LOGO} alt="" />
-            <span className="brand-name">Lale Gülleri</span>
+            <span className="brand-name">Läle Gülleri</span>
           </Link>
           <button type="button" className="icon-btn" aria-label={t('menu.close')} onClick={() => setSideOpen(false)}>
             <Icon name="close" size={20} />

@@ -52,7 +52,7 @@ export default function Login() {
   return (
     <div className="auth-wrap">
       <div className="auth-card" style={{ textAlign: 'center' }}>
-        <img className="auth-logo" src={LOGO} alt="Lale Gülleri" />
+        <img className="auth-logo" src={LOGO} alt="Läle Gülleri" />
         <h1>{t('auth.loginTitle')}</h1>
         <p className="auth-sub">{t('auth.loginSub')}</p>
         {forBasket && <p className="auth-notice" role="status">{t('cart.signInToAdd')}</p>}

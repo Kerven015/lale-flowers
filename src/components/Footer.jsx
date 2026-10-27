@@ -17,9 +17,9 @@ export default function Footer() {
         <div className="footer-top">
           <div>
             <div className="footer-brand">
-              <img src={LOGO} alt="Lale gülleri logo" />
+              <img src={LOGO} alt="Läle gülleri logo" />
               <div>
-                <strong>Lale Gülleri</strong>
+                <strong>Läle Gülleri</strong>
                 <small>{t('brand.tagline')}</small>
               </div>
             </div>
@@ -59,7 +59,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© {year} Lale Gülleri. {t('foot.rights')}</span>
+          <span>© {year} Läle Gülleri. {t('foot.rights')}</span>
           <div className="pay">
             <span>VISA</span><span>MasterCard</span><span>{t('checkout.cash')}</span>
           </div>

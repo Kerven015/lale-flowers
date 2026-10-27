@@ -1,4 +1,4 @@
-# Running Lale Gülleri with Docker
+# Running Läle Gülleri with Docker
 
 Docker runs the whole shop in containers. You don't install Node.js or
 PostgreSQL yourself, only Docker.

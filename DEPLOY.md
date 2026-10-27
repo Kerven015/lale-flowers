@@ -1,4 +1,4 @@
-# Putting Lale Gülleri on your Ubuntu server
+# Putting Läle Gülleri on your Ubuntu server
 
 This guide sets up the whole shop on one Ubuntu server (22.04 or 24.04):
 
