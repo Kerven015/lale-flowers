@@ -30,7 +30,7 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-visual">
-            <img src={LOGO} alt="Lale gülleri" />
+            <img src={LOGO} alt="Läle gülleri" />
             <div className="hero-float">
               <span className="dot"><Icon name="truck" size={20} /></span>
               <div>

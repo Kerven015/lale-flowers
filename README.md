@@ -1,4 +1,4 @@
-# Lale Gülleri — flower shop
+# Läle Gülleri — flower shop
 
 Website (React + Vite) and shop server (Node.js + PostgreSQL) in one project.
 

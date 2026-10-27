@@ -9,7 +9,7 @@ await pool.query('SELECT 1') // stop early if the database is not reachable
 
 const server = createApp()
 server.listen(config.port, config.host, () => {
-  console.log(`Lale Gülleri server: http://${config.host}:${config.port}${config.staticDir ? ' (website + API)' : ' (API)'}`)
+  console.log(`Läle Gülleri server: http://${config.host}:${config.port}${config.staticDir ? ' (website + API)' : ' (API)'}`)
 })
 
 const cleanup = setInterval(() => deleteExpiredSessions().catch((e) => console.error('session cleanup', e.message)), 60 * 60 * 1000)

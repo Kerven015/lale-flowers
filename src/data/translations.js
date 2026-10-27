@@ -84,7 +84,7 @@ export const I18N = {
       'promo.btn': 'Arzanladyşdan peýdalan',
 
       'about.eyebrow': 'Biz barada',
-      'about.title': 'Lale gülleri — söýgi bilen döredilen',
+      'about.title': 'Läle gülleri — söýgi bilen döredilen',
       'about.text': 'Biz 2015-nji ýyldan bäri Aşgabatda iň owadan gülleri we buketleri hödürleýäris. Her gül el bilen saýlanýar we söýgi bilen taýýarlanýar.',
       'about.btn': 'Has giňişleýin',
       'about.f1': 'El bilen ýygnan buketler',
@@ -96,7 +96,7 @@ export const I18N = {
 
       'news.title': 'Täzeliklerden habardar boluň',
 
-      'foot.desc': 'Lale gülleri — Aşgabatdaky iň owadan gül dükany. Täze güller, çalt eltip bermek we ýürekden hyzmat.',
+      'foot.desc': 'Läle gülleri — Aşgabatdaky iň owadan gül dükany. Täze güller, çalt eltip bermek we ýürekden hyzmat.',
       'foot.catalog': 'Katalog',
       'foot.company': 'Kompaniýa',
       'foot.help': 'Kömek',
@@ -216,9 +216,9 @@ export const I18N = {
       'checkout.emptyCart': 'Sebediňiz boş. Sargyt etmek üçin önüm goşuň.',
 
       'aboutPage.title': 'Biz barada',
-      'aboutPage.sub': 'Lale gülleri — söýgi, owadanlyk we hil.',
+      'aboutPage.sub': 'Läle gülleri — söýgi, owadanlyk we hil.',
       'aboutPage.story': 'Biziň hekaýamyz',
-      'aboutPage.storyText': 'Lale gülleri 2015-nji ýylda Aşgabatda kiçijik gül dükany hökmünde başlady. Şu gün biz Türkmenistanyň iň halanan onlaýn gül dükanlaryndan birine öýüldik. Biziň maksadymyz — her müşderä iň owadan gülleri we ýürekden hyzmaty hödürlemek.',
+      'aboutPage.storyText': 'Läle gülleri 2015-nji ýylda Aşgabatda kiçijik gül dükany hökmünde başlady. Şu gün biz Türkmenistanyň iň halanan onlaýn gül dükanlaryndan birine öýüldik. Biziň maksadymyz — her müşderä iň owadan gülleri we ýürekden hyzmaty hödürlemek.',
       'aboutPage.quality': 'Hil kepilligi',
       'aboutPage.qualityText': 'Ähli güllerimiz barlagdan geçýär. Biz diňe täze we sagdyn gülleri ulanýarys.',
       'aboutPage.deliveryT': 'Çalt eltip bermek',
@@ -568,7 +568,7 @@ export const I18N = {
       'promo.btn': 'Получить скидку',
 
       'about.eyebrow': 'О нас',
-      'about.title': 'Lale gülleri — создано с любовью',
+      'about.title': 'Läle gülleri — создано с любовью',
       'about.text': 'С 2015 года мы дарим жителям Ашхабада самые красивые цветы и букеты. Каждый цветок отбирается вручную и оформляется с любовью.',
       'about.btn': 'Подробнее',
       'about.f1': 'Букеты ручной сборки',
@@ -580,7 +580,7 @@ export const I18N = {
 
       'news.title': 'Будьте в курсе новостей',
 
-      'foot.desc': 'Lale gülleri — самый красивый цветочный магазин Ашхабада. Свежие цветы, быстрая доставка и душевный сервис.',
+      'foot.desc': 'Läle gülleri — самый красивый цветочный магазин Ашхабада. Свежие цветы, быстрая доставка и душевный сервис.',
       'foot.catalog': 'Каталог',
       'foot.company': 'Компания',
       'foot.help': 'Помощь',
@@ -700,9 +700,9 @@ export const I18N = {
       'checkout.emptyCart': 'Ваша корзина пуста. Добавьте товары для оформления.',
 
       'aboutPage.title': 'О нас',
-      'aboutPage.sub': 'Lale gülleri — любовь, красота и качество.',
+      'aboutPage.sub': 'Läle gülleri — любовь, красота и качество.',
       'aboutPage.story': 'Наша история',
-      'aboutPage.storyText': 'Lale gülleri началась в 2015 году с небольшого цветочного магазина в Ашхабаде. Сегодня мы — один из самых любимых онлайн-цветочных магазинов Туркменистана. Наша цель — дарить каждому клиенту самые красивые цветы и душевный сервис.',
+      'aboutPage.storyText': 'Läle gülleri началась в 2015 году с небольшого цветочного магазина в Ашхабаде. Сегодня мы — один из самых любимых онлайн-цветочных магазинов Туркменистана. Наша цель — дарить каждому клиенту самые красивые цветы и душевный сервис.',
       'aboutPage.quality': 'Гарантия качества',
       'aboutPage.qualityText': 'Все наши цветы проходят проверку. Мы используем только свежие и здоровые цветы.',
       'aboutPage.deliveryT': 'Быстрая доставка',
@@ -1052,7 +1052,7 @@ export const I18N = {
       'promo.btn': 'İndirimi al',
 
       'about.eyebrow': 'Hakkımızda',
-      'about.title': 'Lale gülleri — sevgiyle yaratıldı',
+      'about.title': 'Läle gülleri — sevgiyle yaratıldı',
       'about.text': '2015 yılından beri Aşkabat’ta en güzel çiçekleri ve buketleri sunuyoruz. Her çiçek elle seçilir ve sevgiyle hazırlanır.',
       'about.btn': 'Daha fazla',
       'about.f1': 'El yapımı buketler',
@@ -1064,7 +1064,7 @@ export const I18N = {
 
       'news.title': 'Haberlerden haberdar olun',
 
-      'foot.desc': 'Lale gülleri — Aşkabat’ın en güzel çiçek mağazası. Taze çiçekler, hızlı teslimat ve gönülden hizmet.',
+      'foot.desc': 'Läle gülleri — Aşkabat’ın en güzel çiçek mağazası. Taze çiçekler, hızlı teslimat ve gönülden hizmet.',
       'foot.catalog': 'Katalog',
       'foot.company': 'Şirket',
       'foot.help': 'Yardım',
@@ -1184,9 +1184,9 @@ export const I18N = {
       'checkout.emptyCart': 'Sepetiniz boş. Sipariş için ürün ekleyin.',
 
       'aboutPage.title': 'Hakkımızda',
-      'aboutPage.sub': 'Lale gülleri — sevgi, güzellik ve kalite.',
+      'aboutPage.sub': 'Läle gülleri — sevgi, güzellik ve kalite.',
       'aboutPage.story': 'Hikâyemiz',
-      'aboutPage.storyText': 'Lale gülleri 2015 yılında Aşkabat’ta küçük bir çiçek dükkânı olarak başladı. Bugün Türkmenistan’ın en sevilen online çiçek mağazalarından biriyiz. Amacımız her müşteriye en güzel çiçekleri ve gönülden hizmeti sunmak.',
+      'aboutPage.storyText': 'Läle gülleri 2015 yılında Aşkabat’ta küçük bir çiçek dükkânı olarak başladı. Bugün Türkmenistan’ın en sevilen online çiçek mağazalarından biriyiz. Amacımız her müşteriye en güzel çiçekleri ve gönülden hizmeti sunmak.',
       'aboutPage.quality': 'Kalite garantisi',
       'aboutPage.qualityText': 'Tüm çiçeklerimiz kontrol edilir. Sadece taze ve sağlıklı çiçekler kullanırız.',
       'aboutPage.deliveryT': 'Hızlı teslimat',
