@@ -64,10 +64,17 @@ export function parseCookies(req) {
 // maxAge in seconds; null = cookie lasts until the browser closes; 0 = delete
 export function setCookie(res, name, value, { maxAge = null, path: p = '/' } = {}) {
   const parts = [`${name}=${encodeURIComponent(value)}`, `Path=${p}`, 'HttpOnly', 'SameSite=Lax']
-  if (config.cookieSecure) parts.push('Secure')
+  // Secure = the browser sends the cookie over HTTPS only
+  if (config.cookieSecure || (res.req && isHttps(res.req))) parts.push('Secure')
   if (maxAge !== null) parts.push(`Max-Age=${maxAge}`)
   const prev = res.getHeader('Set-Cookie')
   res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), parts.join('; ')])
+}
+
+// The visitor reached the site over HTTPS (directly, or through our own proxy).
+export function isHttps(req) {
+  if (req.socket?.encrypted) return true
+  return config.trustProxy && String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https'
 }
 
 export function clientIp(req) {

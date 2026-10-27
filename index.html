@@ -8,17 +8,7 @@
     <meta name="theme-color" content="#e01b24" />
     <link rel="icon" href="/images/lale%20gulleri.jpg" type="image/jpeg" />
     <link rel="manifest" href="/manifest.json" />
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem('lale_theme');
-          if (t === 'dark' || t === 'light') {
-            document.documentElement.setAttribute('data-theme', t);
-            document.documentElement.style.colorScheme = t;
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>

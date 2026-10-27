@@ -186,7 +186,7 @@ function AdminPassword({ L }) {
     e.preventDefault()
     const f = e.target
     setError('')
-    if (f.next.value.length < 8) { setError(L.pwShort); return }
+    if (f.next.value.length < 12) { setError(L.pwShort); return }
     if (f.next.value !== f.again.value) { setError(L.pwMismatch); return }
     setBusy(true)
     try {

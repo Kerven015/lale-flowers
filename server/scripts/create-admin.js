@@ -2,7 +2,7 @@
 // Usage: npm run create-admin            (asks for the name and password)
 import readline from 'node:readline'
 import { pool } from '../src/db.js'
-import { hashPassword } from '../src/security.js'
+import { ADMIN_PASSWORD_MIN, hashPassword } from '../src/security.js'
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: !!process.stdin.isTTY })
 const lines = rl[Symbol.asyncIterator]()
@@ -24,8 +24,8 @@ async function ask(question, hidden = false) {
 try {
   const username = (await ask('Admin username: ')).trim()
   if (!username || username.length > 100) throw new Error('Please enter a username.')
-  const password = await ask('Password (at least 8 characters): ', true)
-  if (password.length < 8) throw new Error('The password must be at least 8 characters.')
+  const password = await ask(`Password (at least ${ADMIN_PASSWORD_MIN} characters): `, true)
+  if (password.length < ADMIN_PASSWORD_MIN) throw new Error(`The password must be at least ${ADMIN_PASSWORD_MIN} characters.`)
   const again = await ask('Repeat the password: ', true)
   if (again !== password) throw new Error('The passwords do not match.')
 

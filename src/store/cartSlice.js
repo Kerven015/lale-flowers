@@ -93,6 +93,17 @@ function takePending() {
 
 export const hasPendingAdd = () => !!readPending()
 
+// The note for the sign-in / register page: why the guest is there (or null).
+export function pendingNotice() {
+  const p = readPending()
+  if (!p) return null
+  return p.items.length ? 'cart.signInToAdd' : 'checkout.loginFirst'
+}
+
+// A page that needs a login (checkout) sends the guest to sign in: come back
+// to `back` afterwards, with nothing to add.
+export const returnAfterSignIn = (back) => savePending([], back)
+
 // What a basket button should do. Returns
 //   true     -> added
 //   false    -> nothing could be added (sold out)

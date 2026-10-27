@@ -8,7 +8,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import productsReducer from '../store/productsSlice'
-import cartReducer, { PENDING_KEY, applyPendingAdd, hasPendingAdd, requestAdd } from '../store/cartSlice'
+import cartReducer, { PENDING_KEY, applyPendingAdd, hasPendingAdd, pendingNotice, requestAdd, returnAfterSignIn } from '../store/cartSlice'
 import authReducer, { refreshUser } from '../store/authSlice'
 import { useCart } from '../store/hooks'
 import PendingCart from '../components/PendingCart'
@@ -53,6 +53,7 @@ describe('requestAdd', () => {
     expect(store.dispatch(requestAdd([{ id: 5, qty: 2 }], '/product/5'))).toBe('signin')
     expect(store.getState().cart.items).toEqual([])
     expect(hasPendingAdd()).toBe(true)
+    expect(pendingNotice()).toBe('cart.signInToAdd')
   })
 
   test('sold out: refused for everyone, nothing remembered', () => {
@@ -70,6 +71,17 @@ describe('applyPendingAdd', () => {
     expect(store.getState().cart.items).toEqual([{ id: 5, qty: 3 }])
     expect(store.dispatch(applyPendingAdd())).toBeNull() // only once
     expect(store.getState().cart.items).toEqual([{ id: 5, qty: 3 }])
+  })
+
+  test('sent to sign in from checkout: back to checkout, basket unchanged', () => {
+    const store = configureStore({
+      reducer: { products: productsReducer, cart: cartReducer, auth: authReducer },
+      preloadedState: { products: { list: [ROSE], status: 'ready' }, cart: { items: [{ id: 5, qty: 2 }], favorites: [] }, auth: { user: USER, ready: true } },
+    })
+    returnAfterSignIn('/checkout')
+    expect(pendingNotice()).toBe('checkout.loginFirst') // not "sign in to add to the basket"
+    expect(store.dispatch(applyPendingAdd())).toEqual({ back: '/checkout', added: false })
+    expect(store.getState().cart.items).toEqual([{ id: 5, qty: 2 }])
   })
 
   test('still a guest: nothing happens', () => {

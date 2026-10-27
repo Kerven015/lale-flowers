@@ -1,7 +1,7 @@
 import http from 'node:http'
 import path from 'node:path'
 import { config } from './config.js'
-import { HttpError, Router, sendJson, serveFile } from './http.js'
+import { HttpError, Router, isHttps, sendJson, serveFile } from './http.js'
 import { isUploadFileName } from './uploads.js'
 import * as shop from './routes/shop.js'
 import * as account from './routes/account.js'
@@ -34,16 +34,38 @@ function checkRequestSource(req) {
   throw new HttpError(403, 'forbidden')
 }
 
-function securityHeaders(res) {
+// What pages may load. Only this site, plus Google's sign-in button (script,
+// its style and its frame). Inline styles stay allowed (React and the Google
+// button use them); inline scripts do not, so injected HTML cannot run code.
+const GSI = 'https://accounts.google.com/gsi/'
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  `script-src 'self' ${GSI}client`,
+  `style-src 'self' 'unsafe-inline' ${GSI}style`,
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  `connect-src 'self' ${GSI}`,
+  `frame-src ${GSI}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ')
+
+function securityHeaders(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('X-Frame-Options', 'SAMEORIGIN')
   // lets the "Sign in with Google" pop-up report back to this page
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY)
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+  // browsers ignore it over plain HTTP; sent only over HTTPS so a test over http stays usable
+  if (isHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000')
 }
 
 async function handle(req, res) {
-  securityHeaders(res)
+  securityHeaders(req, res)
   const url = new URL(req.url, 'http://local')
   const pathname = url.pathname
 

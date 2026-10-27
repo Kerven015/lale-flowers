@@ -9,7 +9,7 @@ import { useFinishSignIn } from '../components/PendingCart'
 import { checkFields, clearError, focusFirstError, keysFromServer } from '../utils/formCheck'
 import { useAuth, useSettings } from '../store/hooks'
 import { fill } from '../utils/productHelpers'
-import { hasPendingAdd } from '../store/cartSlice'
+import { pendingNotice } from '../store/cartSlice'
 import { LOGO } from '../utils/assets'
 
 
@@ -22,8 +22,8 @@ export default function Register() {
   const [error, setError] = useState(null) // ApiError from the server
   const [fieldErrors, setFieldErrors] = useState({}) // field -> translation key
 
-  // came here from "Add to basket": the flower is added after signing up
-  const [forBasket] = useState(hasPendingAdd)
+  // came here from "Add to basket" (the flower is added after signing up) or from checkout
+  const [notice] = useState(pendingNotice)
   const finish = useFinishSignIn()
 
   // signed in (now or already) -> back to the flower, or to the profile
@@ -78,7 +78,7 @@ export default function Register() {
         <h1>{t('auth.registerTitle')}</h1>
         {/* "… {n}% off your first order" only while that discount is on */}
         <p className="auth-sub">{firstOrderDiscount > 0 ? fill(t('auth.registerSub'), { n: firstOrderDiscount }) : t('auth.loginSub')}</p>
-        {forBasket && <p className="auth-notice" role="status">{t('cart.signInToAdd')}</p>}
+        {notice && <p className="auth-notice" role="status">{t(notice)}</p>}
         <form onSubmit={onSubmit} onInput={clearError(setFieldErrors)} onChange={clearError(setFieldErrors)} noValidate>
           <div className="form-grid">
             {field('first', t('auth.first'), { autoComplete: 'given-name', maxLength: 80 })}

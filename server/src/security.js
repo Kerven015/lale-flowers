@@ -6,6 +6,7 @@ import { HttpError, clientIp, parseCookies, setCookie } from './http.js'
 
 const scrypt = promisify(crypto.scrypt)
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 }
+export const ADMIN_PASSWORD_MIN = 12
 
 // ---- passwords (scrypt, built into Node) -----------------------------------
 export async function hashPassword(password) {
@@ -107,19 +108,46 @@ setInterval(() => {
   for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k)
 }, 60_000).unref()
 
+function bucket(key, minutes) {
+  const now = Date.now()
+  let b = buckets.get(key)
+  if (!b || b.reset < now) { b = { count: 0, reset: now + minutes * 60_000 }; buckets.set(key, b) }
+  return b
+}
+
+function tooMany(res, b) {
+  res.setHeader('Retry-After', Math.max(1, Math.ceil((b.reset - Date.now()) / 1000)))
+  throw new HttpError(429, 'rate_limited')
+}
+
 // Allows `max` requests per `minutes` for the same key; otherwise 429.
 // Limits are generous on purpose: mobile networks put many customers behind
 // one shared IP address, and real customers must never be blocked.
 export function limit(name, max, minutes, keyFn = () => '') {
   return (ctx) => {
-    const key = `${name}|${clientIp(ctx.req)}|${keyFn(ctx)}`
-    const now = Date.now()
-    let b = buckets.get(key)
-    if (!b || b.reset < now) { b = { count: 0, reset: now + minutes * 60_000 }; buckets.set(key, b) }
+    const b = bucket(`${name}|${clientIp(ctx.req)}|${keyFn(ctx)}`, minutes)
     b.count++
-    if (b.count > max) {
-      ctx.res.setHeader('Retry-After', Math.ceil((b.reset - now) / 1000))
-      throw new HttpError(429, 'rate_limited')
-    }
+    if (b.count > max) tooMany(ctx.res, b)
   }
+}
+
+// Counts only failed tries (a wrong password, a discount code that does not
+// exist) for one key, from every IP address together. This stops guessing
+// spread over many addresses, while correct tries are never counted.
+// check() before the try (429 when there were too many), fail() after a wrong one.
+export function failureLimit(name, max, minutes) {
+  return {
+    check(ctx, key) {
+      const b = buckets.get(`${name}||${key}`)
+      if (b && b.reset >= Date.now() && b.count >= max) tooMany(ctx.res, b)
+    },
+    fail(key) {
+      bucket(`${name}||${key}`, minutes).count++
+    },
+  }
+}
+
+// for the tests
+export function resetLimits() {
+  buckets.clear()
 }
