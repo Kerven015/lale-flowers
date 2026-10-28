@@ -6,7 +6,8 @@ import { api } from '../api'
 import { readJSON } from '../utils/storage'
 
 export const PRODUCTS_CACHE_KEY = 'lale_products_cache'
-export const CATEGORIES_CACHE_KEY = 'lale_categories_cache'
+// v2: since the built-in categories are in the list too
+export const CATEGORIES_CACHE_KEY = 'lale_categories_cache_v2'
 
 function cachedProducts() {
   const list = readJSON(PRODUCTS_CACHE_KEY, null)
@@ -15,7 +16,7 @@ function cachedProducts() {
 
 const cached = cachedProducts()
 
-// Categories the admin added: [{ key, names: { tm, ru, tr }, sortOrder }]
+// Every category in menu order (admin → Categories): [{ key, names: { tm, ru, tr }, sortOrder }]
 function cachedCategories() {
   const list = readJSON(CATEGORIES_CACHE_KEY, null)
   return Array.isArray(list) ? list.filter((c) => c && typeof c.key === 'string' && c.names) : []

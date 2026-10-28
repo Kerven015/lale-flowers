@@ -22,14 +22,18 @@ import { DeliveryProvider } from '../contexts/DeliveryContext'
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const PEONIES = { key: 'pion-gulleri', names: { tm: 'Pion gülleri', ru: 'Пионы', tr: 'Şakayıklar' }, sortOrder: 1 }
+// from the server, in the admin's order: roses renamed, peonies moved up, tulips/gifts/plants deleted
+const ROSES = { key: 'roses', names: { tm: 'Güller', ru: 'Розы premium', tr: 'Güller' }, sortOrder: 2 }
+const BOUQUETS = { key: 'bouquets', names: { tm: 'Buketler', ru: 'Букеты', tr: 'Buketler' }, sortOrder: 3 }
+const CATS = [PEONIES, ROSES, BOUQUETS]
 const P = (id, cat, name) => ({ id, cat, price: 100, inStock: true, colors: [], occasions: [], images: [], i18n: { tm: { name }, ru: { name }, tr: { name } } })
 const PRODUCTS = [P(1, 'roses', 'Rose'), P(2, 'pion-gulleri', 'Peony A'), P(3, 'pion-gulleri', 'Peony B')]
 
-function makeStore(status = 'ready') {
+function makeStore(status = 'ready', categories = CATS) {
   return configureStore({
     reducer: { products: productsReducer, cart: cartReducer, auth: authReducer, settings: settingsReducer },
     preloadedState: {
-      products: { list: PRODUCTS, categories: [PEONIES], status },
+      products: { list: PRODUCTS, categories, status },
       cart: { items: [], favorites: [] },
       auth: { user: null, ready: true },
     },
@@ -55,15 +59,19 @@ async function render(ui, path = '/', store = makeStore()) {
 
 beforeEach(() => { document.body.replaceChildren(); localStorage.clear() })
 
-test('menu links: the built-in types, then the added categories in the visitor language', async () => {
-  function Links() {
-    return <ul>{useFlowerTypeLinks().map((l) => <li key={l.key} data-to={l.to}>{l.label}</li>)}</ul>
-  }
+function Links() {
+  return <ul>{useFlowerTypeLinks().map((l) => <li key={l.key} data-to={l.to}>{l.label}</li>)}</ul>
+}
+
+test('menu links follow the admin: order, names, deleted ones gone', async () => {
   const el = await render(<Links />)
-  const items = [...el.querySelectorAll('li')]
-  expect(items.length).toBe(6)
-  expect(items.at(-1).textContent).toBe('Пионы')
-  expect(items.at(-1).dataset.to).toBe('/category/pion-gulleri')
+  const items = [...el.querySelectorAll('li')].map((li) => [li.textContent, li.dataset.to])
+  expect(items).toEqual([['Пионы', '/category/pion-gulleri'], ['Розы premium', '/roses'], ['Букеты', '/bouquets']])
+})
+
+test('before the list has loaded: the shop\'s original categories', async () => {
+  const el = await render(<Links />, '/', makeStore('loading', []))
+  expect([...el.querySelectorAll('li')].map((li) => li.dataset.to)).toEqual(['/roses', '/tulips', '/bouquets', '/gifts', '/catalog?cat=plants'])
 })
 
 describe('the category page', () => {
@@ -74,6 +82,16 @@ describe('the category page', () => {
     expect(text).toContain('Peony A')
     expect(text).toContain('Peony B')
     expect(text).not.toContain('Rose')
+  })
+
+  test('a renamed built-in category keeps its address and shows the new name', async () => {
+    const el = await render(<Category />, '/category/roses')
+    expect(el.querySelector('h1').textContent).toBe('Розы premium')
+  })
+
+  test('a deleted built-in category shows "page not found"', async () => {
+    const el = await render(<Category />, '/category/tulips')
+    expect(el.textContent).toContain('404')
   })
 
   test('an unknown address shows "page not found"', async () => {

@@ -1,14 +1,17 @@
-// Categories the admin adds (besides the built-in ones in products.js TYPES).
-// A product's `cat` is a built-in type, 'other', or one of these slugs.
+// Categories: the five that came with the shop (roses, tulips, bouquets,
+// gifts, plants; migration 009) and the ones the admin adds. All of them can
+// be renamed, reordered and deleted. A product's `cat` is one of these slugs,
+// or 'other' with its own typed text.
 import { LANGS } from './config.js'
 import { query } from './db.js'
 import { TAGS, TYPES } from './products.js'
 
 export const MAX_CATEGORIES = 50
 export const NAME_MAX = 40
-// Slugs that would clash with built-in types or menu tags (the catalog
-// filter treats them the same way)
-const RESERVED = new Set([...TYPES, ...TAGS, 'all', 'new', 'catalog'])
+// Slugs that would clash with "Other" or the occasion tags (the catalog filter
+// treats tags like categories). The built-in addresses (roses ...) are free
+// again once deleted, so a deleted built-in category can be added back.
+const RESERVED = new Set(['other', ...TAGS.filter((t) => !TYPES.includes(t)), 'all', 'new', 'catalog'])
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const RU = {

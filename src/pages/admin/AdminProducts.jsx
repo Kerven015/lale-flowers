@@ -8,7 +8,8 @@ import AdminCatalog from '../../components/AdminCatalog'
 import StockPanel from './StockPanel'
 import ConfirmDelete from '../../components/ConfirmDelete'
 import DescriptionEditor, { detailsFromProduct, emptyDetails } from '../../components/DescriptionEditor'
-import { ADMIN_TYPES, MAX_PHOTOS, validateForm } from '../../utils/adminProducts'
+import { MAX_PHOTOS, validateForm } from '../../utils/adminProducts'
+import { CATEGORY_KEYS } from '../../utils/catalogFilter'
 import { OTHER_TYPE, TAG_OPTIONS, editableTags } from '../../utils/productTypes'
 import { COLOR_KEYS } from '../../utils/catalogFilter'
 import Icon from '../../components/Icons'
@@ -29,11 +30,15 @@ const text = (v) => (v === null || v === undefined ? '' : String(v))
 
 export default function AdminProducts({ L, onSessionLost }) {
   const { lang, t } = useI18n()
-  const { products, name, catName, addedCategories, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
-  // built-in types, then the categories added in the Categories tab, "Other" last
-  const types = useMemo(() => [
-    ...ADMIN_TYPES.filter((c) => c !== OTHER_TYPE), ...addedCategories.map((c) => c.key), OTHER_TYPE,
-  ], [addedCategories])
+  const { products, name, catName, categoryKeys, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
+  // every category (admin → Categories), "Other" last
+  const types = useMemo(() => [...categoryKeys, OTHER_TYPE], [categoryKeys])
+  // "Show under" choices: the occasions, and the categories that still exist
+  // (with the admin's names)
+  const tagOptions = useMemo(
+    () => TAG_OPTIONS.filter((o) => !CATEGORY_KEYS.includes(o.key) || categoryKeys.includes(o.key)),
+    [categoryKeys],
+  )
   const { toast } = useToast()
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
@@ -276,7 +281,7 @@ export default function AdminProducts({ L, onSessionLost }) {
             <label id="adm-occ-label">{L.occasions} *</label>
             <small className="muted" style={{ display: 'block', marginBottom: 8 }}>{L.occHint}</small>
             <div className="chips" role="group" aria-labelledby="adm-occ-label" style={{ marginBottom: 4 }}>
-              {TAG_OPTIONS.map((o) => {
+              {tagOptions.map((o) => {
                 const on = form.occasions.includes(o.key)
                 return (
                   <button
@@ -287,7 +292,7 @@ export default function AdminProducts({ L, onSessionLost }) {
                     className={`chip${on ? ' active' : ''}`}
                     onClick={() => toggleOccasion(o.key)}
                   >
-                    {on && <Icon name="check" size={14} />}{t(o.label)}
+                    {on && <Icon name="check" size={14} />}{CATEGORY_KEYS.includes(o.key) ? catName(o.key) : t(o.label)}
                   </button>
                 )
               })}

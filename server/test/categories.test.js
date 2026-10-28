@@ -49,7 +49,9 @@ test('adding a category: names in three languages; it shows up in the shop', asy
   const c = byKey(r.data, 'pion-gulleri')
   assert.deepEqual(c.names, { tm: 'Pion gülleri', ru: 'Пионы', tr: 'Şakayıklar' })
   assert.equal(c.products, 0)
-  assert.deepEqual(r.data.builtIn.map((b) => b.key), ['roses', 'tulips', 'bouquets', 'gifts', 'plants'])
+  // the shop's own categories come first, then the new one
+  assert.deepEqual(r.data.categories.slice(0, 5).map((b) => b.key), ['roses', 'tulips', 'bouquets', 'gifts', 'plants'])
+  assert.equal(r.data.categories.at(-1).key, 'pion-gulleri')
   const shop = await browser(server.base).get('/api/products')
   assert.deepEqual(shop.data.categories.find((x) => x.key === 'pion-gulleri').names.ru, 'Пионы')
 
@@ -122,6 +124,28 @@ test('a category with flowers cannot be deleted; an empty one can', async () => 
   assert.equal(byKey(del.data, 'sowgat-sebetleri'), undefined)
   const actions = (await pool.query(`SELECT action FROM admin_log WHERE action LIKE 'category.%'`)).rows.map((x) => x.action)
   for (const a of ['category.create', 'category.update', 'category.order', 'category.delete']) assert.ok(actions.includes(a), a)
+})
+
+test('the built-in categories can be renamed, moved and (when empty) deleted too', async () => {
+  const list = (await call('GET', '/api/admin/categories')).data.categories
+  const roses = byKey({ categories: list }, 'roses')
+  assert.deepEqual(roses.names, { tm: 'Güller', ru: 'Розы', tr: 'Güller' })
+  const renamed = await call('PUT', `/api/admin/categories/${roses.id}`, { names: { tm: 'Gyzyl güller', ru: 'Розы premium', tr: 'Güller' } })
+  assert.equal(byKey(renamed.data, 'roses').names.ru, 'Розы premium') // the address stays "roses"
+  const shop = await browser(server.base).get('/api/products')
+  assert.equal(shop.data.categories.find((x) => x.key === 'roses').names.ru, 'Розы premium')
+
+  // plants: move to the top, then delete it (nothing is in it)
+  const plants = byKey({ categories: list }, 'plants')
+  const ids = [plants.id, ...list.filter((x) => x.id !== plants.id).map((x) => x.id)]
+  assert.equal((await call('POST', '/api/admin/categories/order', { ids })).data.categories[0].key, 'plants')
+  assert.equal((await call('DELETE', `/api/admin/categories/${plants.id}`)).status, 200)
+  // a flower can no longer be put in it ...
+  assert.equal((await call('POST', '/api/admin/products', productBody('plants'))).data.fields.type, 'type')
+  // ... until it is added back: same address as before
+  const back = await add({ tm: 'Plants', ru: 'Растения', tr: 'Bitkiler' })
+  assert.ok(byKey(back.data, 'plants'))
+  assert.equal((await call('POST', '/api/admin/products', productBody('plants'))).status, 201)
 })
 
 test('customers and guests cannot change categories', async () => {

@@ -9,7 +9,6 @@ import { useDelivery } from '../contexts/DeliveryContext'
 import { useI18n } from '../contexts/I18nContext'
 import { occasionByKey } from '../data/navigation'
 import {
-  CATEGORY_KEYS,
   COLOR_KEYS,
   EMPTY_FILTERS,
   PRICE_RANGES,
@@ -78,7 +77,7 @@ export default function CatalogBrowser({
   resultsExtra = null, // extra controls next to "X products found" (node or (list) => node)
 }) {
   const { t } = useI18n()
-  const { catName, status, addedCategories } = useProducts()
+  const { catName, status, categoryKeys } = useProducts()
   const { isSameDay } = useDelivery()
 
   const [openDd, setOpenDd] = useState('')          // which toolbar dropdown is open
@@ -110,12 +109,8 @@ export default function CatalogBrowser({
   }
 
   const occasion = occasionByKey(filters.occasion)
-  // Fixed categories, the categories the admin added, and any custom types
-  // typed with "Other".
-  const catKeys = useMemo(
-    () => [...CATEGORY_KEYS, ...addedCategories.map((c) => c.key), ...customTypes(products).map((c) => c.key)],
-    [products, addedCategories],
-  )
+  // Every category (admin → Categories), then any custom types typed with "Other".
+  const catKeys = useMemo(() => [...categoryKeys, ...customTypes(products).map((c) => c.key)], [products, categoryKeys])
   const list = useMemo(
     () => sortProducts(
       filterProducts(products, filters, query, { isSameDay, occasionIds: occasion ? occasion.ids : null }),

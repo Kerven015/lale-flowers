@@ -2,7 +2,8 @@
 // admin form.
 import { LANGS } from './config.js'
 
-// Built-in flower types; the admin can add more (categories.js)
+// The flower types the shop came with (now rows in the categories table,
+// see categories.js); kept for the menu tags and colours
 export const TYPES = ['roses', 'tulips', 'bouquets', 'gifts', 'plants', 'other']
 // Menu sections a product can be shown under (src/utils/productTypes.js)
 export const TAGS = ['birthday', 'love', 'roses', 'bouquets', 'gifts', 'wedding', 'congrats', 'thanks', 'home', 'tulips', 'plants']
@@ -100,12 +101,13 @@ export function slugify(s) {
 
 // Checks the admin product form. Photos are checked separately (uploads.js).
 // Returns { data } or { errors }.
-// extraTypes = slugs of the categories the admin added (categories.js).
-export function checkProductForm(body, extraTypes = []) {
+// categories = slugs of the categories that exist now (categories.js);
+// 'other' is always allowed.
+export function checkProductForm(body, categories) {
   const errors = {}
   const name = clean(body.name, 120)
   if (!name) errors.name = 'name'
-  const type = TYPES.includes(body.type) || extraTypes.includes(body.type) ? body.type : null
+  const type = body.type === 'other' || categories.includes(body.type) ? body.type : null
   if (!type) errors.type = 'type'
   const customType = clean(body.customType, 40).replace(/\s+/g, ' ')
   if (type === 'other' && !customType) errors.customType = 'customType'
