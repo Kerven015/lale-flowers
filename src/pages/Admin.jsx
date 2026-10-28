@@ -1,4 +1,4 @@
-// Admin panel: overview, orders, flowers, categories, messages, customers, discounts, settings, log.
+// Admin panel: overview, orders, flowers, categories, menu, messages, customers, discounts, settings, log.
 // Everything is saved on the server; the login is checked by the server.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PageHead from '../components/PageHead'
@@ -17,6 +17,7 @@ import { AdminDiscounts, AdminSettings } from './admin/AdminShop'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminLog from './admin/AdminLog'
 import AdminCategories from './admin/AdminCategories'
+import AdminMenu from './admin/AdminMenu'
 
 const POLL_MS = 15_000
 const TABS = [
@@ -24,6 +25,7 @@ const TABS = [
   ['orders', 'tabOrders', 'orders'],
   ['products', 'tabProducts', 'flower'],
   ['categories', 'tabCategories', 'tag'],
+  ['menu', 'tabMenu', 'sort'],
   ['messages', 'tabMessages', 'inbox'],
   ['customers', 'tabCustomers', 'users'],
   ['discounts', 'tabDiscounts', 'percent'],
@@ -268,6 +270,7 @@ export default function Admin() {
             {tab === 'orders' && <AdminOrders L={L} call={call} summary={summary} version={ordersVersion} onChanged={loadSummary} />}
             {tab === 'products' && <AdminProducts L={L} onSessionLost={sessionLost} />}
             {tab === 'categories' && <AdminCategories L={L} call={call} />}
+            {tab === 'menu' && <AdminMenu L={L} call={call} />}
             {tab === 'messages' && <AdminMessages L={L} call={call} onChanged={loadSummary} />}
             {tab === 'customers' && <AdminCustomers L={L} call={call} />}
             {tab === 'discounts' && <AdminDiscounts L={L} call={call} />}

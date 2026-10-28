@@ -1,7 +1,8 @@
 // Menu structure for the header mega menu, side menu and catalog.
 
-// "By occasion" column. Each occasion lists the catalog products that fit it.
-// Flowers added later in the admin panel still appear under their type.
+// "By occasion" column, until the real list (admin → Menu) has loaded.
+// ids = the original flowers shown under it (flowers never edited in the
+// admin panel; migration 010 writes the same into the database).
 export const OCCASIONS = [
   { key: 'birthday', label: 'occ.birthday', ids: [9, 14, 6, 11, 5, 12] },
   { key: 'love', label: 'occ.love', ids: [1, 2, 8, 4, 7, 16] },
@@ -26,9 +27,19 @@ export const FLOWER_TYPES = [
 const CATEGORY_PATHS = { roses: '/roses', tulips: '/tulips', bouquets: '/bouquets', gifts: '/gifts', plants: '/catalog?cat=plants' }
 const CATEGORY_ICONS = { roses: 'flower', tulips: 'blossom', bouquets: 'sparkles', gifts: 'gift', plants: 'sprout' }
 export const categoryPath = (key) => CATEGORY_PATHS[key] || `/category/${key}`
+export const occasionPath = (key) => `/catalog?occasion=${encodeURIComponent(key)}`
+const OCCASION_ICONS = { birthday: 'cake', love: 'heart', wedding: 'gem', congrats: 'sparkles', thanks: 'handshake', home: 'home' }
+export const occasionIcon = (key) => OCCASION_ICONS[key] || 'gift'
+// icons used in the top menu bar for the shop's original categories
+const MENU_CATEGORY_ICONS = { roses: 'blossom', bouquets: 'bouquet', gifts: 'gift' }
+export const menuCategoryIcon = (key) => MENU_CATEGORY_ICONS[key] || categoryIcon(key)
+// the top bar until the admin's list has loaded
+export const DEFAULT_MENU = [
+  { type: 'occasion', key: 'birthday' }, { type: 'occasion', key: 'love' },
+  { type: 'category', key: 'roses' }, { type: 'category', key: 'bouquets' }, { type: 'category', key: 'gifts' },
+]
 export const categoryIcon = (key) => CATEGORY_ICONS[key] || 'tag'
 
-export const occasionByKey = (key) => OCCASIONS.find((o) => o.key === key) || null
 
 // Delivery cities. Same-day delivery is only possible inside Ashgabat
 // (see delivery texts: "2 hours in Ashgabat, 1 day to regions").

@@ -58,9 +58,10 @@ export function productTags(p) {
 }
 
 // Tags pre-ticked when the admin opens a product for editing: what it is
-// shown under right now (its occasions and its own type).
-export function editableTags(p) {
+// shown under right now (its occasions and its own type). keys = the choices
+// the form offers now (occasions and categories that exist).
+export function editableTags(p, keys = TAG_KEYS) {
   const tags = new Set(productTags(p))
-  if (!Array.isArray(p.occasions) && TAG_KEYS.includes(p.cat)) tags.add(p.cat)
-  return TAG_KEYS.filter((k) => tags.has(k))
+  if (!Array.isArray(p.occasions) && keys.includes(p.cat)) tags.add(p.cat)
+  return keys.filter((k) => tags.has(k))
 }

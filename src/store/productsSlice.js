@@ -8,6 +8,8 @@ import { readJSON } from '../utils/storage'
 export const PRODUCTS_CACHE_KEY = 'lale_products_cache'
 // v2: since the built-in categories are in the list too
 export const CATEGORIES_CACHE_KEY = 'lale_categories_cache_v2'
+export const OCCASIONS_CACHE_KEY = 'lale_occasions_cache'
+export const MENU_CACHE_KEY = 'lale_menu_cache'
 
 function cachedProducts() {
   const list = readJSON(PRODUCTS_CACHE_KEY, null)
@@ -17,16 +19,24 @@ function cachedProducts() {
 const cached = cachedProducts()
 
 // Every category in menu order (admin → Categories): [{ key, names: { tm, ru, tr }, sortOrder }]
-function cachedCategories() {
-  const list = readJSON(CATEGORIES_CACHE_KEY, null)
+const cachedNamed = (key) => {
+  const list = readJSON(key, null)
   return Array.isArray(list) ? list.filter((c) => c && typeof c.key === 'string' && c.names) : []
+}
+// Occasions (admin → Menu), same shape as categories
+// Top menu bar links: [{ type: 'occasion' | 'category', key }]; null = not loaded yet
+function cachedMenu() {
+  const list = readJSON(MENU_CACHE_KEY, null)
+  return Array.isArray(list) ? list.filter((i) => i && typeof i.key === 'string') : null
 }
 
 const productsSlice = createSlice({
   name: 'products',
   initialState: {
     list: cached || [],
-    categories: cachedCategories(),
+    categories: cachedNamed(CATEGORIES_CACHE_KEY),
+    occasions: cachedNamed(OCCASIONS_CACHE_KEY),
+    menu: cachedMenu(),
     // 'loading' (nothing to show yet), 'ready', 'error' (could not load, nothing cached)
     status: cached ? 'ready' : 'loading',
   },
@@ -49,6 +59,8 @@ const productsSlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, { payload }) => {
         state.list = payload.products
         state.categories = payload.categories
+        state.occasions = payload.occasions
+        state.menu = payload.menu
         state.status = 'ready'
       })
       .addCase(fetchProducts.rejected, (state) => {
@@ -65,7 +77,7 @@ export default productsSlice.reducer
 
 export const fetchProducts = createAsyncThunk('products/fetch', async () => {
   const data = await api('/api/products')
-  return { products: data.products || [], categories: data.categories || [] }
+  return { products: data.products || [], categories: data.categories || [], occasions: data.occasions || [], menu: data.menu || [] }
 })
 
 // Admin changes (the server checks the admin login). Errors are thrown to the
@@ -98,6 +110,8 @@ export const selectProducts = (state) => state.products.list
 export const selectProductsStatus = (state) => state.products.status
 const NO_CATEGORIES = []
 export const selectCategories = (state) => state.products.categories || NO_CATEGORIES
+export const selectOccasions = (state) => state.products.occasions || NO_CATEGORIES
+export const selectMenu = (state) => state.products.menu ?? null
 export const selectProductById = (state, id) => {
   const n = parseInt(id, 10)
   return state.products.list.find((p) => p.id === n) || null

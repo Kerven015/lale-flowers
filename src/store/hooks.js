@@ -5,14 +5,17 @@ import { useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/catalog'
-import { FLOWER_TYPES, categoryPath } from '../data/navigation'
+import {
+  DEFAULT_MENU, FLOWER_TYPES, OCCASIONS, categoryPath, menuCategoryIcon, occasionIcon, occasionPath,
+} from '../data/navigation'
 import { CATEGORY_KEYS } from '../utils/catalogFilter'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { productDesc, productImage, productName } from '../utils/productHelpers'
 import { OTHER_TYPE, customTypes, isCustomTypeKey } from '../utils/productTypes'
 import {
-  deleteProducts, duplicateProduct, fetchProducts, retrying, saveProduct, selectCategories, selectProducts, selectProductsStatus,
+  deleteProducts, duplicateProduct, fetchProducts, retrying, saveProduct,
+  selectCategories, selectMenu, selectOccasions, selectProducts, selectProductsStatus,
 } from './productsSlice'
 import {
   clearCart, removeFromCart, requestAdd, selectCart,
@@ -35,6 +38,38 @@ export function useFlowerTypeLinks() {
     ? list.map((c) => ({ key: c.key, to: categoryPath(c.key), label: c.names?.[lang] || c.names?.tm || c.key }))
     : FLOWER_TYPES.map((c) => ({ key: c.key, to: c.to, label: t(`cat.${c.key}`) }))
   ), [list, lang, t])
+}
+
+// Occasions in the admin's order and names (admin → Menu); the original six
+// until the list has loaded. occasionName(key) is null for an unknown one.
+export function useOccasions() {
+  const list = useSelector(selectOccasions)
+  const { lang, t } = useI18n()
+  return useMemo(() => {
+    const occasions = list.length
+      ? list.map((o) => ({ key: o.key, label: o.names?.[lang] || o.names?.tm || o.key }))
+      : OCCASIONS.map((o) => ({ key: o.key, label: t(o.label) }))
+    const byKey = new Map(occasions.map((o) => [o.key, o.label]))
+    return { occasions, occasionKeys: occasions.map((o) => o.key), occasionName: (key) => byKey.get(key) ?? null }
+  }, [list, lang, t])
+}
+
+// The admin's links in the top menu bar (between "Home" and "Catalog"):
+// [{ to, label, icon }]. Links to deleted occasions / categories are left out.
+export function useTopMenuLinks() {
+  const menu = useSelector(selectMenu)
+  const { occasionName } = useOccasions()
+  const { catName, categoryKeys } = useProducts()
+  return useMemo(() => (menu ?? DEFAULT_MENU).flatMap((i) => {
+    if (i.type === 'occasion') {
+      const label = occasionName(i.key)
+      return label ? [{ to: occasionPath(i.key), label, icon: occasionIcon(i.key) }] : []
+    }
+    if (i.type === 'category' && categoryKeys.includes(i.key)) {
+      return [{ to: categoryPath(i.key), label: catName(i.key), icon: menuCategoryIcon(i.key) }]
+    }
+    return []
+  }), [menu, occasionName, catName, categoryKeys])
 }
 
 export function useProducts() {

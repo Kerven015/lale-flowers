@@ -10,6 +10,7 @@ import { PRODUCT_COLUMNS, toProduct } from '../products.js'
 import { failureLimit, limit, optionalCustomer, requireCustomer } from '../security.js'
 import { getShopSettings } from '../settings.js'
 import { loadCategories, toCategory } from '../categories.js'
+import { loadOccasions, publicMenu, toOccasion } from '../occasions.js'
 import { email, oneOf, phone, text } from '../validate.js'
 import { json } from './common.js'
 
@@ -111,8 +112,9 @@ export function register(router) {
 
   router.get('/api/products', async (ctx) => {
     const { rows } = await query(`SELECT ${PRODUCT_COLUMNS} FROM products WHERE deleted_at IS NULL ORDER BY sort_order, id`)
-    // the categories the admin added come along (menus, filter, product form)
-    sendJson(ctx.res, 200, { products: rows.map(toProduct), categories: (await loadCategories()).map(toCategory) })
+    // the categories, occasions and top menu come along (menus, filter, flower form)
+    const [cats, occ, menu] = await Promise.all([loadCategories(), loadOccasions(), publicMenu()])
+    sendJson(ctx.res, 200, { products: rows.map(toProduct), categories: cats.map(toCategory), occasions: occ.map(toOccasion), menu })
   })
 
   // Days and time slots a customer can choose at checkout.

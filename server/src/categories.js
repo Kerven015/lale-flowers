@@ -1,17 +1,15 @@
+// Categories and occasions (occasions.js use the same name helpers).
 // Categories: the five that came with the shop (roses, tulips, bouquets,
 // gifts, plants; migration 009) and the ones the admin adds. All of them can
 // be renamed, reordered and deleted. A product's `cat` is one of these slugs,
 // or 'other' with its own typed text.
 import { LANGS } from './config.js'
 import { query } from './db.js'
-import { TAGS, TYPES } from './products.js'
 
 export const MAX_CATEGORIES = 50
 export const NAME_MAX = 40
-// Slugs that would clash with "Other" or the occasion tags (the catalog filter
-// treats tags like categories). The built-in addresses (roses ...) are free
-// again once deleted, so a deleted built-in category can be added back.
-const RESERVED = new Set(['other', ...TAGS.filter((t) => !TYPES.includes(t)), 'all', 'new', 'catalog'])
+// Never used as an address: "Other" and words the shop uses itself.
+const RESERVED = new Set(['other', 'all', 'new', 'catalog'])
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const RU = {
@@ -53,12 +51,18 @@ export function checkNames(body) {
   return { names: Object.fromEntries(LANGS.map((l) => [l, given[l] || first])) }
 }
 
-// A free slug for a new category, made from its name.
-export async function freeSlug(db, names) {
-  let base = latinSlug(names.tm) || latinSlug(names.tr) || latinSlug(names.ru) || 'category'
-  if (RESERVED.has(base)) base = `${base}-2`
-  const { rows } = await db.query('SELECT slug FROM categories WHERE slug = $1 OR slug LIKE $2', [base, `${base}-%`])
-  const taken = new Set(rows.map((r) => r.slug))
-  if (!taken.has(base) && !RESERVED.has(base)) return base
-  for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`) && !RESERVED.has(`${base}-${i}`)) return `${base}-${i}`
+// A free address for a new category or occasion, made from its name. It must
+// differ from every category and every occasion: the catalog filter treats a
+// flower's occasion tags and categories alike. A built-in address (roses,
+// birthday ...) is free again once deleted, so it can be added back.
+export async function freeSlug(db, names, fallback = 'category') {
+  const base = latinSlug(names.tm) || latinSlug(names.tr) || latinSlug(names.ru) || fallback
+  const { rows } = await db.query(
+    `SELECT slug FROM categories WHERE slug = $1 OR slug LIKE $2
+     UNION SELECT slug FROM occasions WHERE slug = $1 OR slug LIKE $2`,
+    [base, `${base}-%`],
+  )
+  const taken = new Set([...rows.map((r) => r.slug), ...RESERVED])
+  if (!taken.has(base)) return base
+  for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`
 }

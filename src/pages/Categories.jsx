@@ -2,25 +2,27 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import PageHead from '../components/PageHead'
 import { useI18n } from '../contexts/I18nContext'
-import { categoryIcon, occasionByKey } from '../data/navigation'
+import { categoryIcon, occasionPath } from '../data/navigation'
 import { filterProducts } from '../utils/catalogFilter'
 import Icon from '../components/Icons'
-import { useFlowerTypeLinks, useProducts } from '../store/hooks'
+import { useFlowerTypeLinks, useOccasions, useProducts } from '../store/hooks'
 
 export default function Categories() {
   const { t } = useI18n()
   const { products } = useProducts()
   const types = useFlowerTypeLinks()
   // every category (admin's order and names), then the romantic bouquets
+  const { occasionName } = useOccasions()
   const items = useMemo(() => [
     ...types.map((c) => ({ href: c.to, icon: categoryIcon(c.key), label: c.label, f: { cats: [c.key] } })),
-    { href: '/catalog?occasion=love', icon: 'heart', label: t('cat.romantic'), f: { occasion: 'love' } },
-  ], [types, t])
+    // the romantic bouquets, while the "love" occasion exists
+    ...(occasionName('love') ? [{ href: occasionPath('love'), icon: 'heart', label: t('cat.romantic'), f: { occasion: 'love' } }] : []),
+  ], [types, t, occasionName])
   // Counts follow the real catalog, so they stay right after admin changes.
-  const counts = useMemo(() => items.map(({ f }) => {
-    const occ = f.occasion ? occasionByKey(f.occasion) : null
-    return filterProducts(products, f, '', { occasionIds: occ ? occ.ids : null }).length
-  }), [products, items])
+  const counts = useMemo(
+    () => items.map(({ f }) => filterProducts(products, f, '', { occasionIds: f.occasion ? [] : null }).length),
+    [products, items],
+  )
   return (
     <>
       <PageHead title={t('cat.title')} sub={t('cat.sub')} crumbs={[{ label: t('cat.eyebrow') }]} />

@@ -9,12 +9,11 @@ import StockPanel from './StockPanel'
 import ConfirmDelete from '../../components/ConfirmDelete'
 import DescriptionEditor, { detailsFromProduct, emptyDetails } from '../../components/DescriptionEditor'
 import { MAX_PHOTOS, validateForm } from '../../utils/adminProducts'
-import { CATEGORY_KEYS } from '../../utils/catalogFilter'
-import { OTHER_TYPE, TAG_OPTIONS, editableTags } from '../../utils/productTypes'
+import { OTHER_TYPE, editableTags } from '../../utils/productTypes'
 import { COLOR_KEYS } from '../../utils/catalogFilter'
 import Icon from '../../components/Icons'
 import { errorMessage } from '../../api'
-import { useProducts } from '../../store/hooks'
+import { useOccasions, useProducts } from '../../store/hooks'
 
 const ERR_KEY = {
   name: 'eName', type: 'eType', customType: 'eCustom', occasions: 'eOcc', price: 'ePrice', old: 'eOld',
@@ -33,12 +32,13 @@ export default function AdminProducts({ L, onSessionLost }) {
   const { products, name, catName, categoryKeys, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
   // every category (admin → Categories), "Other" last
   const types = useMemo(() => [...categoryKeys, OTHER_TYPE], [categoryKeys])
-  // "Show under" choices: the occasions, and the categories that still exist
-  // (with the admin's names)
+  // "Show under" choices: the occasions, then the categories (admin's order and names)
+  const { occasions } = useOccasions()
   const tagOptions = useMemo(
-    () => TAG_OPTIONS.filter((o) => !CATEGORY_KEYS.includes(o.key) || categoryKeys.includes(o.key)),
-    [categoryKeys],
+    () => [...occasions.map((o) => ({ key: o.key, label: o.label })), ...categoryKeys.map((k) => ({ key: k, label: catName(k) }))],
+    [occasions, categoryKeys, catName],
   )
+  const tagKeys = useMemo(() => tagOptions.map((o) => o.key), [tagOptions])
   const { toast } = useToast()
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
@@ -69,7 +69,7 @@ export default function AdminProducts({ L, onSessionLost }) {
       name: name(p),
       type: types.includes(p.cat) ? p.cat : OTHER_TYPE,
       customType: p.cat === OTHER_TYPE ? p.customType || '' : '',
-      occasions: editableTags(p),
+      occasions: editableTags(p, tagKeys),
       price: String(p.price ?? ''),
       old: p.old ? String(p.old) : '',
       inStock: p.inStock !== false,
@@ -110,7 +110,7 @@ export default function AdminProducts({ L, onSessionLost }) {
     if (saving) return
     if (form.photos.some((p) => p.status === 'loading')) { toast(L.wait, 'error'); return }
     const images = form.photos.filter((p) => p.status === 'done' && p.src).map((p) => p.src)
-    const v = validateForm({ ...form, images }, { editing: !!editing, types })
+    const v = validateForm({ ...form, images }, { editing: !!editing, types, tags: tagKeys })
     if (!v.ok) { setErrors(v.errors); showFirstError(); return }
     setSaving(true)
     try {
@@ -292,7 +292,7 @@ export default function AdminProducts({ L, onSessionLost }) {
                     className={`chip${on ? ' active' : ''}`}
                     onClick={() => toggleOccasion(o.key)}
                   >
-                    {on && <Icon name="check" size={14} />}{CATEGORY_KEYS.includes(o.key) ? catName(o.key) : t(o.label)}
+                    {on && <Icon name="check" size={14} />}{o.label}
                   </button>
                 )
               })}

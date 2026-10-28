@@ -1,11 +1,13 @@
 // The Redux store: one place for the shop's data.
-//   products -> flowers (and the categories the admin added) from the server
+//   products -> flowers, categories, occasions and the top menu from the server
 //   cart     -> basket + favourites (this browser only)
 //   auth     -> the logged-in customer
 //   settings -> shop settings (delivery prices, contacts ...)
 // Language, theme, toasts and the chosen city stay in their React Contexts.
 import { configureStore } from '@reduxjs/toolkit'
-import productsReducer, { CATEGORIES_CACHE_KEY, PRODUCTS_CACHE_KEY, fetchProducts } from './productsSlice'
+import productsReducer, {
+  CATEGORIES_CACHE_KEY, MENU_CACHE_KEY, OCCASIONS_CACHE_KEY, PRODUCTS_CACHE_KEY, fetchProducts,
+} from './productsSlice'
 import cartReducer, { CART_KEY, FAV_KEY, fitCartToStock } from './cartSlice'
 import authReducer, { refreshUser } from './authSlice'
 import settingsReducer, { SETTINGS_CACHE_KEY, fetchSettings } from './settingsSlice'
@@ -32,6 +34,8 @@ store.subscribe(() => {
   const productsChanged = now.products.list !== saved.products.list
   if (productsChanged) writeJSON(PRODUCTS_CACHE_KEY, now.products.list)
   if (now.products.categories !== saved.products.categories) writeJSON(CATEGORIES_CACHE_KEY, now.products.categories)
+  if (now.products.occasions !== saved.products.occasions) writeJSON(OCCASIONS_CACHE_KEY, now.products.occasions)
+  if (now.products.menu !== saved.products.menu) writeJSON(MENU_CACHE_KEY, now.products.menu)
   saved = now
   // fewer flowers left than in the basket -> the basket shrinks to what is left
   if (productsChanged) store.dispatch(fitCartToStock())
