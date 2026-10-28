@@ -40,7 +40,7 @@ Your data lives in Docker **volumes**: `db-data` (the database) and `uploads`
    docker compose exec app node scripts/create-admin.js
    ```
 
-6. Open **http://localhost:8080** for the shop and **http://localhost:8080/admin**
+6. Open **http://localhost:8080** for the shop and **http://localhost:8080/manager@**
    for the admin panel.
 
 The first start creates the tables and adds the 16 original flowers by itself.

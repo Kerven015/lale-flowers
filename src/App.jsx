@@ -18,9 +18,10 @@ import NotFound from './pages/NotFound'
 import Track from './pages/Track'
 import Privacy from './pages/Privacy'
 import { useI18n } from './contexts/I18nContext'
+import { ADMIN_PATH } from './data/adminPath'
 
-// The admin panel is only downloaded when someone opens /admin, so customers
-// don't load its code.
+// The admin panel is only downloaded when someone opens its address
+// (ADMIN_PATH), so customers don't load its code.
 const Admin = lazy(() => import('./pages/Admin'))
 
 function AdminPage() {
@@ -57,8 +58,7 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/track" element={<Track />} />
           <Route path="/privacy" element={<Privacy />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/admin.html" element={<Navigate to="/admin" replace />} />
+          <Route path={ADMIN_PATH} element={<AdminPage />} />
           <Route path="/index.html" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Route>

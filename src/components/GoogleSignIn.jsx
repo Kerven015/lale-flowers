@@ -8,11 +8,12 @@ import { useToast } from '../contexts/ToastContext'
 import { errorMessage } from '../api'
 import { useAuth } from '../store/hooks'
 import { cancelOneTap, googleId, onGoogleCredential } from '../utils/googleSignIn'
+import { ADMIN_PATH } from '../data/adminPath'
 
 // Google's button speaks these languages ("tk" = Turkmen)
 const BUTTON_LOCALE = { tm: 'tk', ru: 'ru', tr: 'tr' }
 // No One Tap where it would get in the way
-const NO_ONE_TAP = /^\/(login|register|checkout|profile|admin)(\/|\.html)?$/
+const NO_ONE_TAP = /^\/(login|register|checkout|profile)(\/|\.html)?$/
 
 export function GoogleButton() {
   const { t, lang } = useI18n()
@@ -65,7 +66,7 @@ export function GoogleAuth() {
     else toast(errorMessage(t, r.error), 'error')
   }), [googleLogin, lang, t, toast])
 
-  const oneTap = ready && !user && !NO_ONE_TAP.test(pathname)
+  const oneTap = ready && !user && !NO_ONE_TAP.test(pathname) && pathname !== ADMIN_PATH
   useEffect(() => {
     if (!oneTap) { cancelOneTap(); return }
     let alive = true
