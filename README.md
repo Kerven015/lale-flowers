@@ -66,7 +66,7 @@ https://www.postgresql.org/download/windows/ — remember the password you choos
    npm run dev
    ```
 
-   Open http://localhost:5173. The admin panel is at http://localhost:5173/admin.
+   Open http://localhost:5173. The admin panel is at http://localhost:5173/manager@.
    Vite forwards `/api` and `/uploads` to the shop server (see `vite.config.js`).
 
 ## Redux (`src/store/`)
@@ -97,7 +97,7 @@ change while `npm run dev` is running.
 | `/track` | Order tracking by order code |
 | `/about` `/contact` `/delivery` | Info |
 | `/login` `/register` `/profile` | Customer account |
-| `/admin` | Admin panel (overview, orders, flowers, messages, customers, discounts, settings, log) |
+| `/manager@` | Admin panel (overview, orders, flowers, messages, customers, discounts, settings, log) |
 
 ## Shop server API (for reference)
 

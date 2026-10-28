@@ -201,7 +201,7 @@ server's ones.
 
 ## Using the shop
 
-- **Admin panel:** `https://lalegulleri.tm/admin`
+- **Admin panel:** `https://lalegulleri.tm/manager@`
   - **Orders:** new orders appear by themselves within about 15 seconds, with a sound (the bell button turns it on and off). Keep the page open in a tab. Press "Next: …" to move an order along (Confirmed → Being prepared → On the way → Delivered). The customer sees the status on the Track page and in their profile. "Clear history" deletes delivered / cancelled orders (all, or only older ones); orders in progress are never deleted, and deleting cannot be undone.
   - **Flowers:** add, edit and delete flowers, change prices, and mark a flower as out of stock. Changes are visible to every customer straight away.
   - **Messages:** what people send with the contact form.
