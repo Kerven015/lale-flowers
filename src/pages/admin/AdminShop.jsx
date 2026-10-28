@@ -5,7 +5,7 @@ import { useDispatch } from 'react-redux'
 import { useI18n } from '../../contexts/I18nContext'
 import { useToast } from '../../contexts/ToastContext'
 import Icon from '../../components/Icons'
-import { formatPrice } from '../../utils/productHelpers'
+import { fill, formatPrice } from '../../utils/productHelpers'
 import { settingsSet } from '../../store/settingsSlice'
 import { api } from '../../api'
 
@@ -170,6 +170,7 @@ export function AdminSettings({ L, call }) {
       <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>{busy ? L.saving : L.setSave}</button>
     </form>
     <AdminPassword L={L} />
+    <AdminTwoStep L={L} />
     </>
   )
 }
@@ -219,6 +220,146 @@ function AdminPassword({ L }) {
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="btn btn-outline btn-block" type="submit" disabled={busy} aria-busy={busy}>{busy ? L.saving : L.pwSave}</button>
     </form>
+  )
+}
+
+// Two-step login: after the password, a code from an app on the phone.
+// (api, not the panel's call(): a wrong password here is a 401 too, and
+// must not count as "signed out".)
+function AdminTwoStep({ L }) {
+  const { toast } = useToast()
+  const [status, setStatus] = useState(null) // { enabled, backupCodesLeft }
+  const [mode, setMode] = useState('') // '' | password | scan | newCodes | off
+  const [setup, setSetup] = useState(null) // { secret, qr } while turning it on
+  const [codes, setCodes] = useState(null) // backup codes, shown once
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try { setStatus(await api('/api/admin/two-step')) } catch { setStatus(null) }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const close = () => { setMode(''); setSetup(null); setError('') }
+  async function run(e, fn) {
+    e.preventDefault()
+    const f = e.target
+    setBusy(true)
+    setError('')
+    try {
+      await fn(f)
+    } catch (err) {
+      setError(err?.code === 'invalid_credentials' ? L.pwWrong
+        : err?.data?.fields?.code ? L.tsWrongCode
+        : err?.code === 'rate_limited' ? L.pwLimited : L.loadFailed)
+      if (f.code) f.code.value = ''
+    } finally {
+      setBusy(false)
+    }
+  }
+  const post = (path, body) => api(path, { method: 'POST', body })
+
+  const onPassword = (e) => run(e, async (f) => {
+    setSetup(await post('/api/admin/two-step/start', { password: f.password.value }))
+    setMode('scan')
+  })
+  const onEnable = (e) => run(e, async (f) => {
+    const r = await post('/api/admin/two-step/enable', { code: f.code.value })
+    close()
+    setCodes(r.backupCodes)
+    toast(L.tsEnabled)
+    load()
+  })
+  const onNewCodes = (e) => run(e, async (f) => {
+    const r = await post('/api/admin/two-step/backup-codes', { code: f.code.value })
+    close()
+    setCodes(r.backupCodes)
+    toast(L.tsNewCodesDone)
+    load()
+  })
+  const onOff = (e) => run(e, async (f) => {
+    await post('/api/admin/two-step/disable', { password: f.password.value, code: f.code.value })
+    close()
+    toast(L.tsDisabled)
+    load()
+  })
+  async function copyCodes() {
+    try { await navigator.clipboard.writeText(codes.join('\n')); toast(L.tsCopied) } catch { /* the codes stay on screen */ }
+  }
+
+  if (!status) return null
+  const passwordField = (
+    <>
+      <input type="text" name="username" autoComplete="username" hidden readOnly />
+      <Field id="ts-password" label={L.tsPassword}>
+        <input id="ts-password" name="password" className="field" type="password" autoComplete="current-password" maxLength={200} required />
+      </Field>
+    </>
+  )
+  const codeField = (label, numeric) => (
+    <Field id="ts-code" label={label}>
+      <input id="ts-code" name="code" className="field adm-code-input" inputMode={numeric ? 'numeric' : 'text'} autoComplete="one-time-code" maxLength={numeric ? 6 : 20} required />
+    </Field>
+  )
+  const buttons = (label) => (
+    <div className="ts-actions">
+      <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy}>{busy ? L.saving : label}</button>
+      <button className="btn btn-outline" type="button" onClick={close} disabled={busy}>{L.tsCancel}</button>
+    </div>
+  )
+  const err = error && <p className="form-error" role="alert">{error}</p>
+
+  return (
+    <div className="summary adm-settings" style={{ position: 'static', marginTop: 24 }}>
+      <h3 className="with-ico"><Icon name="shield" size={20} />{L.tsTitle}</h3>
+      {codes ? (
+        <>
+          <p style={{ marginTop: 0 }}><strong>{L.tsCodesTitle}</strong></p>
+          <p className="muted">{L.tsCodesHint}</p>
+          <ol className="adm-backup-codes">{codes.map((c) => <li key={c}><code>{c}</code></li>)}</ol>
+          <div className="ts-actions">
+            <button className="btn btn-outline" type="button" onClick={copyCodes}>{L.tsCopy}</button>
+            <button className="btn btn-primary" type="button" onClick={() => setCodes(null)}>{L.tsSaved}</button>
+          </div>
+        </>
+      ) : mode === 'password' ? (
+        <form onSubmit={onPassword} noValidate>
+          <p className="muted" style={{ marginTop: 0 }}>{L.tsHint}</p>
+          {passwordField}{err}{buttons(L.tsContinue)}
+        </form>
+      ) : mode === 'scan' && setup ? (
+        <form onSubmit={onEnable} noValidate>
+          <p style={{ marginTop: 0 }}>{L.tsScan}</p>
+          <img className="adm-qr" src={setup.qr} alt="QR" width="200" height="200" />
+          <p className="muted">{L.tsManual}</p>
+          <p><code className="adm-secret">{setup.secret.match(/.{1,4}/g).join(' ')}</code></p>
+          {codeField(L.tsCodeLabel, true)}{err}{buttons(L.tsConfirm)}
+        </form>
+      ) : mode === 'newCodes' ? (
+        <form onSubmit={onNewCodes} noValidate>
+          <p className="muted" style={{ marginTop: 0 }}>{L.tsNewCodesHint}</p>
+          {codeField(L.tsCodeOrBackup, false)}{err}{buttons(L.tsNewCodes)}
+        </form>
+      ) : mode === 'off' ? (
+        <form onSubmit={onOff} noValidate>
+          <p className="muted" style={{ marginTop: 0 }}>{L.tsOffHint}</p>
+          {passwordField}{codeField(L.tsCodeOrBackup, false)}{err}{buttons(L.tsTurnOff)}
+        </form>
+      ) : status.enabled ? (
+        <>
+          <p style={{ marginTop: 0 }}><span className="ts-on" aria-hidden="true">✓</span> {fill(L.tsOnText, { n: status.backupCodesLeft })}</p>
+          <div className="ts-actions">
+            <button className="btn btn-outline" type="button" onClick={() => setMode('newCodes')}>{L.tsNewCodes}</button>
+            <button className="btn btn-outline" type="button" onClick={() => setMode('off')}>{L.tsTurnOff}</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="muted" style={{ marginTop: 0 }}>{L.tsOffText} {L.tsHint}</p>
+          <button className="btn btn-primary" type="button" onClick={() => setMode('password')}>{L.tsStart}</button>
+        </>
+      )}
+    </div>
   )
 }
 

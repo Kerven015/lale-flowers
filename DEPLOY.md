@@ -93,6 +93,17 @@ npm run create-admin   # asks for a username and a password (at least 12 charact
 Run `npm run create-admin` again any time to add another admin, or to set a
 new password for an existing one.
 
+**Two-step login (recommended):** log in to the admin panel, open
+**Settings → Two-step login → Turn on** and scan the QR code with Google
+Authenticator or Microsoft Authenticator on your phone. From then on the panel
+asks for the 6-digit code from the app after the password. Keep the backup
+codes it shows somewhere safe. If the phone and the backup codes are both
+lost, turn it off from the server and set it up again:
+
+```bash
+npm run two-step-off   # asks for the admin username
+```
+
 ## 5. Build the website
 
 ```bash
@@ -207,6 +218,7 @@ server's ones.
   - **Messages:** what people send with the contact form.
   - **Customers:** if someone forgets their password, press "New password" and tell them the temporary password by phone. They can change it in their profile.
 - **The admin login lasts 12 hours** or until the browser closes.
+- **Two-step login:** Settings → Two-step login. After the password the panel asks for the code from the phone app; a backup code works once instead. "New backup codes" makes fresh ones (the old ones stop working).
 
 ## If something does not work
 

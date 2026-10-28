@@ -1,4 +1,4 @@
-// Every /api/admin route (except sign-in, sign-out and "am I signed in?")
+// Every /api/admin route (except sign-in, its code step, sign-out and "am I signed in?")
 // refuses requests without an admin session, and a customer session is not
 // enough either. Checked by calling each route directly, the way an attacker
 // would, not through the admin panel.
@@ -7,7 +7,7 @@ import { after, before, test } from 'node:test'
 import { browser, dropSchema, pool, resetDatabase, startServer } from './helpers.js'
 
 const { router } = await import('../src/app.js')
-const OPEN = new Set(['POST /api/admin/login', 'POST /api/admin/logout', 'GET /api/admin/me'])
+const OPEN = new Set(['POST /api/admin/login', 'POST /api/admin/login/code', 'POST /api/admin/logout', 'GET /api/admin/me'])
 
 let server
 before(async () => { await resetDatabase(); server = await startServer() })

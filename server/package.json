@@ -13,11 +13,13 @@
     "migrate": "node --env-file=.env scripts/migrate.js",
     "seed": "node --env-file=.env scripts/seed.js",
     "create-admin": "node --env-file=.env scripts/create-admin.js",
+    "two-step-off": "node --env-file=.env scripts/two-step-off.js",
     "setup": "npm run migrate && npm run seed",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "google-auth-library": "^9.15.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "qrcode": "1.5.4"
   }
 }

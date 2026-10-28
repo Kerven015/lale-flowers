@@ -58,7 +58,7 @@ export default function AdminLog({ L, call }) {
           <thead><tr><th>{L.logWhen}</th><th>{L.logWho}</th><th>{L.logWhat}</th><th>{L.logDetails}</th></tr></thead>
           <tbody>
             {entries.map((e) => (
-              <tr key={e.id} className={e.action === 'admin.login_failed' ? 'is-warn' : ''}>
+              <tr key={e.id} className={e.action === 'admin.login_failed' || e.action === 'admin.code_failed' ? 'is-warn' : ''}>
                 <td>{orderDate(e.createdAt, lang, true)}</td>
                 <td>{e.admin || '—'}<small className="muted"> {e.ip}</small></td>
                 <td>{L[`log_${e.action.replace('.', '_')}`] || e.action}<small className="muted"> {e.target}</small></td>

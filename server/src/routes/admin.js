@@ -10,8 +10,9 @@ import { logAdmin } from '../audit.js'
 import { recordMovement } from '../inventory.js'
 import { adminSettings, dayText, itemsFor } from './shop.js'
 import { json } from './common.js'
+import { ADMIN_HOURS } from './adminTwoStep.js'
+import { startPendingLogin } from '../twoStep.js'
 
-const ADMIN_HOURS = 12
 const adminKey = (ctx) => String(ctx.body?.username || '').trim().toLowerCase().slice(0, 100)
 // wrong passwords for one admin name from all IP addresses together
 const adminFailures = failureLimit('admin-account', 20, 60)
@@ -165,13 +166,15 @@ export function register(router) {
     const username = String(ctx.body.username || '').trim().slice(0, 100)
     adminFailures.check(ctx, adminKey(ctx))
     const password = typeof ctx.body.password === 'string' ? ctx.body.password.slice(0, 200) : ''
-    const { rows } = await query('SELECT id, username, password_hash FROM admins WHERE lower(username) = lower($1)', [username])
+    const { rows } = await query('SELECT id, username, password_hash, totp_secret IS NOT NULL AS two_step FROM admins WHERE lower(username) = lower($1)', [username])
     const ok = rows[0] ? await verifyPassword(password, rows[0].password_hash) : await verifyDummy(password)
     if (!ok) {
       adminFailures.fail(adminKey(ctx))
       await logAdmin(ctx, 'admin.login_failed', '', { username })
       throw new HttpError(401, 'invalid_credentials')
     }
+    // two-step login on: no session yet, the code from the phone comes next
+    if (rows[0].two_step) return sendJson(ctx.res, 200, { twoStep: true, ticket: startPendingLogin(rows[0].id) })
     ctx.adminId = rows[0].id
     await logAdmin(ctx, 'admin.login')
     await startSession(ctx.res, 'admin', rows[0].id, { hours: ADMIN_HOURS, remember: false })

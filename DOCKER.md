@@ -105,6 +105,7 @@ Run these in the project folder.
 | Is everything running? | `docker compose ps` |
 | Server messages / errors | `docker compose logs -f app` (Ctrl+C to stop watching) |
 | Add an admin / new admin password | `docker compose exec app node scripts/create-admin.js` |
+| Turn off two-step login (phone and backup codes lost) | `docker compose exec app node scripts/two-step-off.js` |
 | Update after changing files | `docker compose up -d --build` (add `--profile https` on the server) |
 
 **Never run `docker compose down -v`.** The `-v` deletes the database and all photos.
