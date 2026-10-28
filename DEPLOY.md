@@ -217,7 +217,7 @@ server's ones.
   - **Flowers:** add, edit and delete flowers, change prices, and mark a flower as out of stock. Changes are visible to every customer straight away.
   - **Messages:** what people send with the contact form.
   - **Customers:** if someone forgets their password, press "New password" and tell them the temporary password by phone. They can change it in their profile.
-- **The admin login lasts 12 hours** or until the browser closes.
+- **The admin panel asks for the login on every visit:** opening it (also a reload or a new tab), leaving it for a shop page, or closing the tab ends the admin login. Open it in one tab only: a second tab logs the first one out. A login that stays open ends after 12 hours.
 - **Two-step login:** Settings → Two-step login. After the password the panel asks for the code from the phone app; a backup code works once instead. "New backup codes" makes fresh ones (the old ones stop working).
 
 ## If something does not work
