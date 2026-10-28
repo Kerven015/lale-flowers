@@ -13,7 +13,7 @@ import { usePageTitle } from '../utils/pageTitle'
 
 export default function Catalog({ presetCat = '', home = false }) {
   const { t } = useI18n()
-  const { products } = useProducts()
+  const { products, catName } = useProducts()
   const [params] = useSearchParams()
   const location = useLocation()
 
@@ -30,7 +30,7 @@ export default function Catalog({ presetCat = '', home = false }) {
   }, [location.key, presetCat])
 
   const occasion = occasionByKey(filters.occasion)
-  const title = presetCat ? t(`cat.${presetCat}`) : occasion ? t(occasion.label) : home ? t('cat.title') : t('catalog.title')
+  const title = presetCat ? catName(presetCat) : occasion ? t(occasion.label) : home ? t('cat.title') : t('catalog.title')
   usePageTitle(home ? '' : title)
   const crumbs = presetCat || occasion
     ? [{ label: t('nav.catalog'), to: '/catalog' }, { label: title }]

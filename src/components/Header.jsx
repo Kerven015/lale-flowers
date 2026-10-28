@@ -2,12 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { FLOWER_TYPES, OCCASIONS } from '../data/navigation'
+import { OCCASIONS } from '../data/navigation'
 import { formatPrice, productImage } from '../utils/productHelpers'
 import Icon from './Icons'
 import { CountBadge } from '../motion/RollingNumber'
 import { useSlidingPill } from '../motion/motion'
-import { useAuth, useCart, useProducts } from '../store/hooks'
+import { useAuth, useCart, useFlowerTypeLinks, useProducts } from '../store/hooks'
 import { LOGO } from '../utils/assets'
 
 const LANGS = ['tm', 'ru', 'tr']
@@ -29,6 +29,7 @@ function LangSwitch({ className = '' }) {
 
 function MegaColumns({ onPick }) {
   const { t } = useI18n()
+  const types = useFlowerTypeLinks()
   return (
     <div className="mega-cols">
       <div className="mega-col">
@@ -39,8 +40,8 @@ function MegaColumns({ onPick }) {
       </div>
       <div className="mega-col">
         <h4>{t('menu.byType')}</h4>
-        {FLOWER_TYPES.map((c) => (
-          <Link key={c.key} to={c.to} onClick={onPick}>{t(`cat.${c.key}`)}</Link>
+        {types.map((c) => (
+          <Link key={c.key} to={c.to} onClick={onPick}>{c.label}</Link>
         ))}
       </div>
     </div>

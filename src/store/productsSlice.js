@@ -6,6 +6,7 @@ import { api } from '../api'
 import { readJSON } from '../utils/storage'
 
 export const PRODUCTS_CACHE_KEY = 'lale_products_cache'
+export const CATEGORIES_CACHE_KEY = 'lale_categories_cache'
 
 function cachedProducts() {
   const list = readJSON(PRODUCTS_CACHE_KEY, null)
@@ -14,10 +15,17 @@ function cachedProducts() {
 
 const cached = cachedProducts()
 
+// Categories the admin added: [{ key, names: { tm, ru, tr }, sortOrder }]
+function cachedCategories() {
+  const list = readJSON(CATEGORIES_CACHE_KEY, null)
+  return Array.isArray(list) ? list.filter((c) => c && typeof c.key === 'string' && c.names) : []
+}
+
 const productsSlice = createSlice({
   name: 'products',
   initialState: {
     list: cached || [],
+    categories: cachedCategories(),
     // 'loading' (nothing to show yet), 'ready', 'error' (could not load, nothing cached)
     status: cached ? 'ready' : 'loading',
   },
@@ -38,7 +46,8 @@ const productsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchProducts.fulfilled, (state, { payload }) => {
-        state.list = payload
+        state.list = payload.products
+        state.categories = payload.categories
         state.status = 'ready'
       })
       .addCase(fetchProducts.rejected, (state) => {
@@ -55,7 +64,7 @@ export default productsSlice.reducer
 
 export const fetchProducts = createAsyncThunk('products/fetch', async () => {
   const data = await api('/api/products')
-  return data.products || []
+  return { products: data.products || [], categories: data.categories || [] }
 })
 
 // Admin changes (the server checks the admin login). Errors are thrown to the
@@ -86,6 +95,8 @@ export const deleteProducts = (ids) => async (dispatch) => {
 
 export const selectProducts = (state) => state.products.list
 export const selectProductsStatus = (state) => state.products.status
+const NO_CATEGORIES = []
+export const selectCategories = (state) => state.products.categories || NO_CATEGORIES
 export const selectProductById = (state, id) => {
   const n = parseInt(id, 10)
   return state.products.list.find((p) => p.id === n) || null

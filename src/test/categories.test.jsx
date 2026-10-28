@@ -1,0 +1,91 @@
+// @vitest-environment jsdom
+// Categories the admin added: in the menus and footer links, with their own
+// page (/category/<address>), in the catalog filter; unknown addresses are 404.
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
+import { Provider } from 'react-redux'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { configureStore } from '@reduxjs/toolkit'
+import { beforeEach, describe, expect, test } from 'vitest'
+import productsReducer from '../store/productsSlice'
+import cartReducer from '../store/cartSlice'
+import authReducer from '../store/authSlice'
+import settingsReducer from '../store/settingsSlice'
+import { useFlowerTypeLinks } from '../store/hooks'
+import { filterProducts, filtersFromParams } from '../utils/catalogFilter'
+import Category from '../pages/Category'
+import { I18nProvider } from '../contexts/I18nContext'
+import { ThemeProvider } from '../contexts/ThemeContext'
+import { ToastProvider } from '../contexts/ToastContext'
+import { DeliveryProvider } from '../contexts/DeliveryContext'
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+const PEONIES = { key: 'pion-gulleri', names: { tm: 'Pion gülleri', ru: 'Пионы', tr: 'Şakayıklar' }, sortOrder: 1 }
+const P = (id, cat, name) => ({ id, cat, price: 100, inStock: true, colors: [], occasions: [], images: [], i18n: { tm: { name }, ru: { name }, tr: { name } } })
+const PRODUCTS = [P(1, 'roses', 'Rose'), P(2, 'pion-gulleri', 'Peony A'), P(3, 'pion-gulleri', 'Peony B')]
+
+function makeStore(status = 'ready') {
+  return configureStore({
+    reducer: { products: productsReducer, cart: cartReducer, auth: authReducer, settings: settingsReducer },
+    preloadedState: {
+      products: { list: PRODUCTS, categories: [PEONIES], status },
+      cart: { items: [], favorites: [] },
+      auth: { user: null, ready: true },
+    },
+  })
+}
+
+async function render(ui, path = '/', store = makeStore()) {
+  localStorage.setItem('lale_lang', 'ru')
+  const el = document.body.appendChild(document.createElement('div'))
+  await act(async () => {
+    createRoot(el).render(
+      <Provider store={store}>
+        <I18nProvider><ThemeProvider><ToastProvider><DeliveryProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes><Route path="/category/:cat" element={ui} /><Route path="*" element={ui} /></Routes>
+          </MemoryRouter>
+        </DeliveryProvider></ToastProvider></ThemeProvider></I18nProvider>
+      </Provider>,
+    )
+  })
+  return el
+}
+
+beforeEach(() => { document.body.replaceChildren(); localStorage.clear() })
+
+test('menu links: the built-in types, then the added categories in the visitor language', async () => {
+  function Links() {
+    return <ul>{useFlowerTypeLinks().map((l) => <li key={l.key} data-to={l.to}>{l.label}</li>)}</ul>
+  }
+  const el = await render(<Links />)
+  const items = [...el.querySelectorAll('li')]
+  expect(items.length).toBe(6)
+  expect(items.at(-1).textContent).toBe('Пионы')
+  expect(items.at(-1).dataset.to).toBe('/category/pion-gulleri')
+})
+
+describe('the category page', () => {
+  test('an added category opens with its name and its flowers', async () => {
+    const el = await render(<Category />, '/category/pion-gulleri')
+    expect(el.querySelector('h1').textContent).toBe('Пионы')
+    const text = el.textContent
+    expect(text).toContain('Peony A')
+    expect(text).toContain('Peony B')
+    expect(text).not.toContain('Rose')
+  })
+
+  test('an unknown address shows "page not found"', async () => {
+    const el = await render(<Category />, '/category/no-such-thing')
+    expect(el.textContent).toContain('404')
+  })
+})
+
+test('catalog filter: ?cat=<address> selects the added category', () => {
+  const f = filtersFromParams(new URLSearchParams('cat=pion-gulleri'))
+  expect(f.cats).toEqual(['pion-gulleri'])
+  expect(filterProducts(PRODUCTS, f).map((p) => p.id)).toEqual([2, 3])
+  // anything that is not an address is ignored
+  expect(filtersFromParams(new URLSearchParams('cat=<script>')).cats).toEqual([])
+})

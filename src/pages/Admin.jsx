@@ -1,4 +1,4 @@
-// Admin panel: overview, orders, flowers, messages, customers, discounts, settings, log.
+// Admin panel: overview, orders, flowers, categories, messages, customers, discounts, settings, log.
 // Everything is saved on the server; the login is checked by the server.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import PageHead from '../components/PageHead'
@@ -16,12 +16,14 @@ import { AdminCustomers, AdminMessages } from './admin/AdminInbox'
 import { AdminDiscounts, AdminSettings } from './admin/AdminShop'
 import AdminDashboard from './admin/AdminDashboard'
 import AdminLog from './admin/AdminLog'
+import AdminCategories from './admin/AdminCategories'
 
 const POLL_MS = 15_000
 const TABS = [
   ['dashboard', 'tabDashboard', 'grid'],
   ['orders', 'tabOrders', 'orders'],
   ['products', 'tabProducts', 'flower'],
+  ['categories', 'tabCategories', 'tag'],
   ['messages', 'tabMessages', 'inbox'],
   ['customers', 'tabCustomers', 'users'],
   ['discounts', 'tabDiscounts', 'percent'],
@@ -118,6 +120,14 @@ export function LoginForm({ L, onDone }) {
   )
 }
 
+// Ends the admin login on the server, also while the page is closing
+// (keepalive lets the request finish after the tab is gone).
+function endAdminLogin() {
+  try {
+    fetch('/api/admin/logout', { method: 'POST', headers: { 'X-Lale': '1' }, credentials: 'same-origin', keepalive: true }).catch(() => {})
+  } catch {}
+}
+
 export default function Admin() {
   const { lang, t } = useI18n()
   const L = TEXT[lang] || TEXT.ru
@@ -134,11 +144,18 @@ export default function Admin() {
   const soundRef = useRef(sound)
   soundRef.current = sound
 
-  // still logged in from before? (the cookie lasts until the browser closes)
+  // Every visit asks for the login again: opening the panel (a new tab, the
+  // address typed in, a reload) first ends any earlier admin login, and
+  // leaving the panel or closing the tab ends it on the server straight away.
   useEffect(() => {
-    api('/api/admin/me')
-      .then((d) => { setAdmin(d.admin); setAuth(d.admin ? 'in' : 'out') })
-      .catch(() => setAuth('out'))
+    let alive = true
+    api('/api/admin/logout', { method: 'POST' }).catch(() => {}).finally(() => { if (alive) setAuth('out') })
+    window.addEventListener('pagehide', endAdminLogin)
+    return () => {
+      alive = false
+      window.removeEventListener('pagehide', endAdminLogin)
+      endAdminLogin()
+    }
   }, [])
 
   // The server says the login has ended (12 hours, or logged out elsewhere).
@@ -250,6 +267,7 @@ export default function Admin() {
             {tab === 'dashboard' && <AdminDashboard L={L} call={call} onOpenTab={pickTab} />}
             {tab === 'orders' && <AdminOrders L={L} call={call} summary={summary} version={ordersVersion} onChanged={loadSummary} />}
             {tab === 'products' && <AdminProducts L={L} onSessionLost={sessionLost} />}
+            {tab === 'categories' && <AdminCategories L={L} call={call} />}
             {tab === 'messages' && <AdminMessages L={L} call={call} onChanged={loadSummary} />}
             {tab === 'customers' && <AdminCustomers L={L} call={call} />}
             {tab === 'discounts' && <AdminDiscounts L={L} call={call} />}

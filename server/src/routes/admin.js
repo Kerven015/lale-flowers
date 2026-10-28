@@ -7,6 +7,7 @@ import { CODE_RE, normalizeCode } from '../pricing.js'
 import { checkShopSettings, getShopSettings, saveShopSettings } from '../settings.js'
 import { commitPhotos, copyPhotos, preparePhotos, removePhotos } from '../uploads.js'
 import { logAdmin } from '../audit.js'
+import { categoryKeys } from '../categories.js'
 import { recordMovement } from '../inventory.js'
 import { adminSettings, dayText, itemsFor } from './shop.js'
 import { json } from './common.js'
@@ -223,7 +224,7 @@ export function register(router) {
 
   // ---- products ------------------------------------------------------------------
   router.post('/api/admin/products', requireAdmin, json(PHOTO_BODY_LIMIT), async (ctx) => {
-    const form = checkProductForm(ctx.body)
+    const form = checkProductForm(ctx.body, await categoryKeys())
     if (form.errors) throw badRequest(form.errors)
     const product = await withPhotos(ctx.body, async (urls) => {
       if (!urls.length) throw badRequest({ image: 'image' })
@@ -251,7 +252,7 @@ export function register(router) {
 
   router.put('/api/admin/products/:id', requireAdmin, json(PHOTO_BODY_LIMIT), async (ctx) => {
     const id = idParam(ctx)
-    const form = checkProductForm(ctx.body)
+    const form = checkProductForm(ctx.body, await categoryKeys())
     if (form.errors) throw badRequest(form.errors)
     let removed = []
     const product = await withPhotos(ctx.body, (urls) => transaction(async (db) => {

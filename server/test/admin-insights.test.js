@@ -310,14 +310,15 @@ describe('dashboard numbers', () => {
     await setSettings({ lowStockThreshold: 3 })
     const low = await addProduct({ stock: 2, name: 'Almost gone' })
     await addProduct({ stock: 50 })
-    const o = await placeOrder(await customer(), [{ id: low, qty: 1 }], { deliveryDate: shopDay(), deliverySlot: '18:00–21:00' }).catch(() => null)
+    // delivery tomorrow: today's evening slot is already closed when the tests run late in the day
+    const o = await placeOrder(await customer(), [{ id: low, qty: 1 }], { deliveryDate: addDays(shopDay(), 1), deliverySlot: '18:00–21:00' })
     const { data } = await adminCall('GET', '/api/admin/stats')
     assert.ok(data.now.todayOrders >= 1)
     assert.equal(data.now.pending, Object.entries(data.now.byStatus).filter(([k]) => !['done', 'cancelled'].includes(k)).reduce((s, [, v]) => s + v, 0))
     assert.ok(data.lowStock.some((p) => p.id === low && p.stock === 1))
     assert.ok(!data.lowStock.some((p) => p.stock > 3))
     assert.equal(data.recent.length <= 8, true)
-    if (o) assert.equal(data.recent[0].code, o.code)
+    assert.equal(data.recent[0].code, o.code)
     assert.equal((await adminCall('GET', '/api/admin/summary')).data.lowStock, data.lowStock.length)
   })
 

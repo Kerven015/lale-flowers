@@ -8,10 +8,11 @@ export const ADMIN_TYPES = ['roses', 'tulips', 'bouquets', 'gifts', 'plants', OT
 // Returns { ok: true } or { ok: false, errors: { field: messageKey } }
 // form.images = photo URLs / data URLs in order (first = main photo).
 // opts.editing: an existing product may be saved without photos.
+// opts.types: every type the form offers (with the categories the admin added).
 export function validateForm(form, opts = {}) {
   const errors = {}
   if (!String(form.name || '').trim()) errors.name = 'name'
-  if (!ADMIN_TYPES.includes(form.type)) errors.type = 'type'
+  if (!(opts.types || ADMIN_TYPES).includes(form.type)) errors.type = 'type'
   if (form.type === OTHER_TYPE && !String(form.customType || '').trim()) errors.customType = 'customType'
   if (!TAG_KEYS.some((k) => (form.occasions || []).includes(k))) errors.occasions = 'occasions'
   const price = Number(form.price)

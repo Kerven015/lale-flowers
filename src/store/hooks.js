@@ -5,12 +5,13 @@ import { useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/catalog'
+import { FLOWER_TYPES } from '../data/navigation'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { productDesc, productImage, productName } from '../utils/productHelpers'
 import { OTHER_TYPE, customTypes, isCustomTypeKey } from '../utils/productTypes'
 import {
-  deleteProducts, duplicateProduct, fetchProducts, retrying, saveProduct, selectProducts, selectProductsStatus,
+  deleteProducts, duplicateProduct, fetchProducts, retrying, saveProduct, selectCategories, selectProducts, selectProductsStatus,
 } from './productsSlice'
 import {
   clearCart, removeFromCart, requestAdd, selectCart,
@@ -23,10 +24,22 @@ import {
 
 // ---- flowers ---------------------------------------------------------------
 
+// "By flower type" links for the menus and the footer: the built-in types,
+// then the categories the admin added. [{ key, to, label }]
+export function useFlowerTypeLinks() {
+  const added = useSelector(selectCategories)
+  const { lang, t } = useI18n()
+  return useMemo(() => [
+    ...FLOWER_TYPES.map((c) => ({ key: c.key, to: c.to, label: t(`cat.${c.key}`) })),
+    ...added.map((c) => ({ key: c.key, to: `/category/${c.key}`, label: c.names?.[lang] || c.names?.tm || c.key })),
+  ], [added, lang, t])
+}
+
 export function useProducts() {
   const dispatch = useDispatch()
   const products = useSelector(selectProducts)
   const status = useSelector(selectProductsStatus)
+  const added = useSelector(selectCategories) // categories the admin added
   const { lang, t } = useI18n()
 
   const reload = useCallback(
@@ -46,10 +59,12 @@ export function useProducts() {
   const catName = useCallback((key) => {
     const cat = CATEGORIES[key]
     if (cat) return t(cat.key)
+    const own = added.find((c) => c.key === key)
+    if (own) return own.names?.[lang] || own.names?.tm || own.names?.ru || key
     if (key === OTHER_TYPE) return t('cat.other')
     if (isCustomTypeKey(key)) return customTypes(products).find((c) => c.key === key)?.label || t('cat.other')
     return key
-  }, [t, products])
+  }, [t, products, added, lang])
 
   // Flower type shown on cards, product page, cart and admin.
   const typeName = useCallback((p) => {
@@ -70,13 +85,14 @@ export function useProducts() {
     deleteProducts: remove,
     duplicateProduct: duplicate,
     categories: CATEGORIES,
+    addedCategories: added,
     get,
     catName,
     typeName,
     name,
     desc,
     image: productImage,
-  }), [products, status, reload, retry, save, remove, duplicate, get, catName, typeName, name, desc])
+  }), [products, status, added, reload, retry, save, remove, duplicate, get, catName, typeName, name, desc])
 }
 
 // ---- basket + favourites ---------------------------------------------------
