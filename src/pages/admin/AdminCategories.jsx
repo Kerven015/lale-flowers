@@ -1,6 +1,6 @@
-// Admin → Categories: add, rename, reorder and delete categories. They show up
-// in the menus, the footer, the Categories page, the catalog filter and the
-// flower form. The built-in ones (roses, tulips, ...) are only listed.
+// Admin → Categories: add, rename, reorder and delete categories, the shop's
+// original ones (roses, tulips ...) too. They show up in the menus, the footer,
+// the Categories page, the catalog filter and the flower form.
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../../contexts/I18nContext'
@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext'
 import Icon from '../../components/Icons'
 import { useProducts } from '../../store/hooks'
 import { fill } from '../../utils/productHelpers'
+import { categoryPath } from '../../data/navigation'
 
 const LANGS = ['tm', 'ru', 'tr']
 const emptyNames = () => ({ tm: '', ru: '', tr: '' })
@@ -16,7 +17,7 @@ export default function AdminCategories({ L, call }) {
   const { t, lang } = useI18n()
   const { toast } = useToast()
   const { reload } = useProducts() // the shop's menus get the new list
-  const [data, setData] = useState(null) // { builtIn, categories }; null = loading
+  const [data, setData] = useState(null) // { categories }; null = loading
   const [failed, setFailed] = useState(false)
   const [names, setNames] = useState(emptyNames)
   const [editing, setEditing] = useState(null) // id being renamed
@@ -130,7 +131,7 @@ export default function AdminCategories({ L, call }) {
               <strong>{c.names[lang] || c.names.tm}</strong>
               <small className="muted">{LANGS.filter((l) => l !== lang).map((l) => c.names[l]).join(' · ')}</small>
               <small className="muted">
-                {fill(L.catFlowers, { n: c.products })} · <Link to={`/category/${c.key}`} target="_blank" rel="noopener">/category/{c.key}</Link>
+                {fill(L.catFlowers, { n: c.products })} · <Link to={categoryPath(c.key)} target="_blank" rel="noopener">{categoryPath(c.key)}</Link>
               </small>
             </div>
             <div className="adm-customer-actions">
@@ -141,15 +142,6 @@ export default function AdminCategories({ L, call }) {
             </div>
           </article>
         ))}
-        {data && (
-          <div className="summary adm-settings" style={{ position: 'static', marginTop: 24 }}>
-            <h3 className="with-ico"><Icon name="flower" size={20} />{L.catBuiltIn}</h3>
-            <p className="muted" style={{ marginTop: 0 }}>{L.catBuiltInHint}</p>
-            <div className="adm-cus-tags">
-              {data.builtIn.map((b) => <span key={b.key} className="adm-cus-tag">{t(`cat.${b.key}`)} · {b.products}</span>)}
-            </div>
-          </div>
-        )}
       </div>
     </>
   )

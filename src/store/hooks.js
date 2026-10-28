@@ -5,7 +5,8 @@ import { useCallback, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CATEGORIES } from '../data/catalog'
-import { FLOWER_TYPES } from '../data/navigation'
+import { FLOWER_TYPES, categoryPath } from '../data/navigation'
+import { CATEGORY_KEYS } from '../utils/catalogFilter'
 import { useI18n } from '../contexts/I18nContext'
 import { useToast } from '../contexts/ToastContext'
 import { productDesc, productImage, productName } from '../utils/productHelpers'
@@ -24,22 +25,23 @@ import {
 
 // ---- flowers ---------------------------------------------------------------
 
-// "By flower type" links for the menus and the footer: the built-in types,
-// then the categories the admin added. [{ key, to, label }]
+// "By flower type" links for the menus and the footer, in the admin's order
+// and with the admin's names (admin → Categories). Until the list has loaded,
+// the shop's original categories. [{ key, to, label }]
 export function useFlowerTypeLinks() {
-  const added = useSelector(selectCategories)
+  const list = useSelector(selectCategories)
   const { lang, t } = useI18n()
-  return useMemo(() => [
-    ...FLOWER_TYPES.map((c) => ({ key: c.key, to: c.to, label: t(`cat.${c.key}`) })),
-    ...added.map((c) => ({ key: c.key, to: `/category/${c.key}`, label: c.names?.[lang] || c.names?.tm || c.key })),
-  ], [added, lang, t])
+  return useMemo(() => (list.length
+    ? list.map((c) => ({ key: c.key, to: categoryPath(c.key), label: c.names?.[lang] || c.names?.tm || c.key }))
+    : FLOWER_TYPES.map((c) => ({ key: c.key, to: c.to, label: t(`cat.${c.key}`) }))
+  ), [list, lang, t])
 }
 
 export function useProducts() {
   const dispatch = useDispatch()
   const products = useSelector(selectProducts)
   const status = useSelector(selectProductsStatus)
-  const added = useSelector(selectCategories) // categories the admin added
+  const added = useSelector(selectCategories) // every category, admin's order
   const { lang, t } = useI18n()
 
   const reload = useCallback(
@@ -52,15 +54,17 @@ export function useProducts() {
   const duplicate = useCallback((id) => dispatch(duplicateProduct(id)), [dispatch])
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+  // keys of every category, in the admin's order (the original five until loaded)
+  const categoryKeys = useMemo(() => (added.length ? added.map((c) => c.key) : CATEGORY_KEYS), [added])
   const get = useCallback((id) => byId.get(parseInt(id, 10)) || null, [byId])
 
   // Label for a category / filter key. Custom types ('other:pion') show the
   // text the admin typed.
   const catName = useCallback((key) => {
+    const own = added.find((c) => c.key === key) // the admin's name comes first
+    if (own) return own.names?.[lang] || own.names?.tm || own.names?.ru || key
     const cat = CATEGORIES[key]
     if (cat) return t(cat.key)
-    const own = added.find((c) => c.key === key)
-    if (own) return own.names?.[lang] || own.names?.tm || own.names?.ru || key
     if (key === OTHER_TYPE) return t('cat.other')
     if (isCustomTypeKey(key)) return customTypes(products).find((c) => c.key === key)?.label || t('cat.other')
     return key
@@ -86,13 +90,14 @@ export function useProducts() {
     duplicateProduct: duplicate,
     categories: CATEGORIES,
     addedCategories: added,
+    categoryKeys,
     get,
     catName,
     typeName,
     name,
     desc,
     image: productImage,
-  }), [products, status, added, reload, retry, save, remove, duplicate, get, catName, typeName, name, desc])
+  }), [products, status, added, categoryKeys, reload, retry, save, remove, duplicate, get, catName, typeName, name, desc])
 }
 
 // ---- basket + favourites ---------------------------------------------------

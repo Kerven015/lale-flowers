@@ -1,11 +1,10 @@
-// Admin → Categories: add, rename, reorder and delete the categories the
-// admin made. The built-in ones (roses, tulips, ...) cannot be changed here.
+// Admin → Categories: add, rename, reorder and delete categories (the ones
+// the shop came with too).
 import { query, transaction } from '../db.js'
 import { HttpError, badRequest, sendJson } from '../http.js'
 import { requireAdmin } from '../security.js'
 import { logAdmin } from '../audit.js'
 import { MAX_CATEGORIES, checkNames, freeSlug, loadCategories, toCategory } from '../categories.js'
-import { TYPES } from '../products.js'
 import { json } from './common.js'
 
 const idParam = (ctx) => {
@@ -14,12 +13,11 @@ const idParam = (ctx) => {
   return id
 }
 
-// Every category with how many flowers use it (built-in ones first).
+// Every category, in menu order, with how many flowers use it.
 async function adminList() {
   const { rows: counts } = await query('SELECT cat, count(*)::int AS n FROM products WHERE deleted_at IS NULL GROUP BY cat')
   const used = Object.fromEntries(counts.map((r) => [r.cat, r.n]))
   return {
-    builtIn: TYPES.filter((t) => t !== 'other').map((key) => ({ key, products: used[key] || 0 })),
     categories: (await loadCategories()).map((r) => ({ id: r.id, ...toCategory(r), products: used[r.slug] || 0 })),
   }
 }

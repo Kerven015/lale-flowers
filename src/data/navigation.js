@@ -11,7 +11,8 @@ export const OCCASIONS = [
   { key: 'home', label: 'occ.home', ids: [13, 5, 15] },
 ]
 
-// "By flower type" column = the existing catalog categories.
+// "By flower type" column. The real list (names, order) comes from the server
+// (admin → Categories); this one is only used until it has loaded.
 export const FLOWER_TYPES = [
   { key: 'roses', to: '/roses' },
   { key: 'tulips', to: '/tulips' },
@@ -19,6 +20,13 @@ export const FLOWER_TYPES = [
   { key: 'gifts', to: '/gifts' },
   { key: 'plants', to: '/catalog?cat=plants' },
 ]
+
+// The categories the shop came with keep their short addresses and icons;
+// the ones the admin adds open at /category/<address>.
+const CATEGORY_PATHS = { roses: '/roses', tulips: '/tulips', bouquets: '/bouquets', gifts: '/gifts', plants: '/catalog?cat=plants' }
+const CATEGORY_ICONS = { roses: 'flower', tulips: 'blossom', bouquets: 'sparkles', gifts: 'gift', plants: 'sprout' }
+export const categoryPath = (key) => CATEGORY_PATHS[key] || `/category/${key}`
+export const categoryIcon = (key) => CATEGORY_ICONS[key] || 'tag'
 
 export const occasionByKey = (key) => OCCASIONS.find((o) => o.key === key) || null
 

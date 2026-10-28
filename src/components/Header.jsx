@@ -142,6 +142,9 @@ function useSlidingIndicator(listRef, indicatorRef, deps) {
 
 export default function Header() {
   const { t, lang } = useI18n()
+  const { catName, categoryKeys } = useProducts()
+  // a category link in the top row: the admin's name, hidden once deleted
+  const catLink = (key, icon) => (categoryKeys.includes(key) ? [{ to: `/${key}`, label: catName(key), icon }] : [])
   const { theme, toggle } = useTheme()
   const { count, favCount } = useCart()
   const { user } = useAuth()
@@ -209,9 +212,9 @@ export default function Header() {
   const menuLinks = [
     { to: '/catalog?occasion=birthday', label: t('occ.birthday'), icon: 'cake' },
     { to: '/catalog?occasion=love', label: t('occ.love'), icon: 'heart' },
-    { to: '/roses', label: t('nav.roses'), icon: 'blossom' },
-    { to: '/bouquets', label: t('nav.bouquets'), icon: 'bouquet' },
-    { to: '/gifts', label: t('nav.gifts'), icon: 'gift' },
+    ...catLink('roses', 'blossom'),
+    ...catLink('bouquets', 'bouquet'),
+    ...catLink('gifts', 'gift'),
     { to: '/catalog', label: t('nav.catalog'), icon: 'grid' },
     // "secondary" links leave the desktop row on narrow laptops (they stay in
     // the side menu and the footer) so the row never gets cut off.
