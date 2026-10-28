@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext'
-import { FLOWER_TYPES } from '../data/navigation'
 import Icon from './Icons'
-import { useAuth, useSettings } from '../store/hooks'
+import { useAuth, useFlowerTypeLinks, useSettings } from '../store/hooks'
 import { LOGO } from '../utils/assets'
 
 export default function Footer() {
   const { t } = useI18n()
   const { phone, email, instagram } = useSettings()
   const { user } = useAuth()
+  const types = useFlowerTypeLinks()
   const year = new Date().getFullYear()
 
   return (
@@ -39,8 +39,8 @@ export default function Footer() {
           <div className="footer-col">
             <h4>{t('foot.catalog')}</h4>
             <Link to="/catalog">{t('menu.allFlowers')}</Link>
-            {FLOWER_TYPES.map((c) => (
-              <Link key={c.key} to={c.to}>{t(`cat.${c.key}`)}</Link>
+            {types.map((c) => (
+              <Link key={c.key} to={c.to}>{c.label}</Link>
             ))}
           </div>
           <div className="footer-col">

@@ -8,6 +8,7 @@ import * as account from './routes/account.js'
 import * as admin from './routes/admin.js'
 import * as adminInsights from './routes/adminInsights.js'
 import * as adminTwoStep from './routes/adminTwoStep.js'
+import * as adminCategories from './routes/adminCategories.js'
 
 // exported for the tests (they check every admin route needs the admin login)
 export const router = new Router()
@@ -16,6 +17,7 @@ account.register(router)
 admin.register(router)
 adminInsights.register(router)
 adminTwoStep.register(router)
+adminCategories.register(router)
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 

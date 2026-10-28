@@ -215,6 +215,7 @@ server's ones.
 - **Admin panel:** `https://lalegulleri.tm/manager@`
   - **Orders:** new orders appear by themselves within about 15 seconds, with a sound (the bell button turns it on and off). Keep the page open in a tab. Press "Next: …" to move an order along (Confirmed → Being prepared → On the way → Delivered). The customer sees the status on the Track page and in their profile. "Clear history" deletes delivered / cancelled orders (all, or only older ones); orders in progress are never deleted, and deleting cannot be undone.
   - **Flowers:** add, edit and delete flowers, change prices, and mark a flower as out of stock. Changes are visible to every customer straight away.
+  - **Categories:** add your own categories (e.g. "Peonies") with a name in Turkmen, Russian and Turkish. They appear in the menus, the footer, the Categories page and the catalog filter, get their own page (`/category/<name>`), and can be chosen as a flower's type. Rename or reorder them any time; a category can be deleted once no flower is in it.
   - **Messages:** what people send with the contact form.
   - **Customers:** if someone forgets their password, press "New password" and tell them the temporary password by phone. They can change it in their profile.
 - **The admin panel asks for the login on every visit:** opening it (also a reload or a new tab), leaving it for a shop page, or closing the tab ends the admin login. Open it in one tab only: a second tab logs the first one out. A login that stays open ends after 12 hours.

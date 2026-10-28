@@ -2,6 +2,8 @@
 import { isCustomTypeKey, productTags, typeKey } from './productTypes'
 
 export const CATEGORY_KEYS = ['roses', 'tulips', 'bouquets', 'gifts', 'plants']
+// Address of a category the admin added, e.g. "pion-gulleri"
+export const isCategorySlug = (key) => typeof key === 'string' && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(key) && key.length <= 40
 export const COLOR_KEYS = ['red', 'white', 'pink', 'yellow', 'purple', 'mixed']
 export const RATING_STEPS = [4.9, 4.7, 4.5]
 export const SORT_KEYS = ['recommended', 'priceDesc', 'priceAsc', 'newest', 'popular']
@@ -83,7 +85,7 @@ export function filtersFromParams(params, presetCat = '') {
   const cat = presetCat || params.get('cat')
   return {
     ...EMPTY_FILTERS,
-    cats: CATEGORY_KEYS.includes(cat) || isCustomTypeKey(cat) ? [cat] : [],
+    cats: CATEGORY_KEYS.includes(cat) || isCustomTypeKey(cat) || isCategorySlug(cat) ? [cat] : [],
     occasion: params.get('occasion') || '',
   }
 }

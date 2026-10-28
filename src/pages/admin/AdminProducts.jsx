@@ -1,5 +1,5 @@
 // Admin: add / edit / delete flowers (saved on the server).
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../../contexts/I18nContext'
 import { useToast } from '../../contexts/ToastContext'
 import { productPhotos } from '../../utils/productHelpers'
@@ -29,7 +29,11 @@ const text = (v) => (v === null || v === undefined ? '' : String(v))
 
 export default function AdminProducts({ L, onSessionLost }) {
   const { lang, t } = useI18n()
-  const { products, name, catName, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
+  const { products, name, catName, addedCategories, saveProduct, deleteProducts, duplicateProduct, reload } = useProducts()
+  // built-in types, then the categories added in the Categories tab, "Other" last
+  const types = useMemo(() => [
+    ...ADMIN_TYPES.filter((c) => c !== OTHER_TYPE), ...addedCategories.map((c) => c.key), OTHER_TYPE,
+  ], [addedCategories])
   const { toast } = useToast()
   const [form, setForm] = useState(emptyForm)
   const [errors, setErrors] = useState({})
@@ -58,7 +62,7 @@ export default function AdminProducts({ L, onSessionLost }) {
     setEditing(p)
     setForm({
       name: name(p),
-      type: ADMIN_TYPES.includes(p.cat) ? p.cat : OTHER_TYPE,
+      type: types.includes(p.cat) ? p.cat : OTHER_TYPE,
       customType: p.cat === OTHER_TYPE ? p.customType || '' : '',
       occasions: editableTags(p),
       price: String(p.price ?? ''),
@@ -101,7 +105,7 @@ export default function AdminProducts({ L, onSessionLost }) {
     if (saving) return
     if (form.photos.some((p) => p.status === 'loading')) { toast(L.wait, 'error'); return }
     const images = form.photos.filter((p) => p.status === 'done' && p.src).map((p) => p.src)
-    const v = validateForm({ ...form, images }, { editing: !!editing })
+    const v = validateForm({ ...form, images }, { editing: !!editing, types })
     if (!v.ok) { setErrors(v.errors); showFirstError(); return }
     setSaving(true)
     try {
@@ -249,7 +253,7 @@ export default function AdminProducts({ L, onSessionLost }) {
               value={form.type}
               onChange={(e) => { setForm({ ...form, type: e.target.value }); setErrors((er) => ({ ...er, type: undefined, customType: undefined })) }}
             >
-              {ADMIN_TYPES.map((c) => <option key={c} value={c}>{catName(c)}</option>)}
+              {types.map((c) => <option key={c} value={c}>{catName(c)}</option>)}
             </select>
             {err('type')}
           </div>
