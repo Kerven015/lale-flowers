@@ -2,12 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { OCCASIONS } from '../data/navigation'
+import { occasionPath } from '../data/navigation'
 import { formatPrice, productImage } from '../utils/productHelpers'
 import Icon from './Icons'
 import { CountBadge } from '../motion/RollingNumber'
 import { useSlidingPill } from '../motion/motion'
-import { useAuth, useCart, useFlowerTypeLinks, useProducts } from '../store/hooks'
+import { useAuth, useCart, useFlowerTypeLinks, useOccasions, useProducts, useTopMenuLinks } from '../store/hooks'
 import { LOGO } from '../utils/assets'
 
 const LANGS = ['tm', 'ru', 'tr']
@@ -30,12 +30,13 @@ function LangSwitch({ className = '' }) {
 function MegaColumns({ onPick }) {
   const { t } = useI18n()
   const types = useFlowerTypeLinks()
+  const { occasions } = useOccasions()
   return (
     <div className="mega-cols">
       <div className="mega-col">
         <h4>{t('menu.byOccasion')}</h4>
-        {OCCASIONS.map((o) => (
-          <Link key={o.key} to={`/catalog?occasion=${o.key}`} onClick={onPick}>{t(o.label)}</Link>
+        {occasions.map((o) => (
+          <Link key={o.key} to={occasionPath(o.key)} onClick={onPick}>{o.label}</Link>
         ))}
       </div>
       <div className="mega-col">
@@ -94,22 +95,32 @@ function MenuLabel({ icon, label }) {
 
 // Keeps the menu on one line in every language: 0 = normal spacing,
 // 1-2 = slightly tighter, 3 = "secondary" items (About, Contacts) move out of
-// the row (they stay in the side menu and the footer), 4 = tightest.
+// the row (they stay in the side menu and the footer), 4 = tightest. If the
+// admin's links (admin → Menu) still do not fit, the last ones move into
+// "More". Returns how many moved.
 function fitMenu(list) {
+  const own = [...list.querySelectorAll(':scope > li.mm-own')]
+  own.forEach((li) => li.classList.remove('mm-moved'))
+  list.dataset.more = '0'
+  const fits = () => list.scrollWidth <= list.clientWidth + 1
   for (const level of ['0', '1', '2', '3', '4']) {
     list.dataset.fit = level
-    if (list.scrollWidth <= list.clientWidth + 1) return
+    if (fits()) return 0
   }
+  list.dataset.more = '1'
+  let moved = 0
+  for (let i = own.length - 1; i >= 0 && !fits(); i--, moved++) own[i].classList.add('mm-moved')
+  return moved
 }
 
-function useSlidingIndicator(listRef, indicatorRef, deps) {
+function useSlidingIndicator(listRef, indicatorRef, deps, onMoved) {
   const first = useRef(true)
   const place = useCallback(() => {
     const list = listRef.current
     const bar = indicatorRef.current
     if (!list || !bar) return
-    fitMenu(list)
-    const active = list.querySelector(':scope > li > .active .mm-text')
+    onMoved(fitMenu(list))
+    const active = list.querySelector(':scope > li:not(.mm-moved) > .active .mm-text')
     if (!active) { bar.style.opacity = '0'; return }
     const lr = list.getBoundingClientRect()
     const ar = active.getBoundingClientRect()
@@ -121,7 +132,7 @@ function useSlidingIndicator(listRef, indicatorRef, deps) {
       first.current = false
       requestAnimationFrame(() => requestAnimationFrame(() => bar.classList.add('ready')))
     }
-  }, [listRef, indicatorRef])
+  }, [listRef, indicatorRef, onMoved])
 
   useLayoutEffect(place, [place, ...deps])
 
@@ -142,9 +153,8 @@ function useSlidingIndicator(listRef, indicatorRef, deps) {
 
 export default function Header() {
   const { t, lang } = useI18n()
-  const { catName, categoryKeys } = useProducts()
-  // a category link in the top row: the admin's name, hidden once deleted
-  const catLink = (key, icon) => (categoryKeys.includes(key) ? [{ to: `/${key}`, label: catName(key), icon }] : [])
+  // the admin's links (admin → Menu) between "Home" and "Catalog"
+  const topLinks = useTopMenuLinks()
   const { theme, toggle } = useTheme()
   const { count, favCount } = useCart()
   const { user } = useAuth()
@@ -153,6 +163,8 @@ export default function Header() {
 
   const [sideOpen, setSideOpen] = useState(false)
   const [megaOpen, setMegaOpen] = useState(false)
+  const [moved, setMoved] = useState(0) // the admin's links that did not fit: shown under "More"
+  const [moreOpen, setMoreOpen] = useState(false)
   const [sideFlowers, setSideFlowers] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -210,11 +222,7 @@ export default function Header() {
 
   // Every menu item has an icon (MENU_ICON_FALLBACK is used if one is forgotten).
   const menuLinks = [
-    { to: '/catalog?occasion=birthday', label: t('occ.birthday'), icon: 'cake' },
-    { to: '/catalog?occasion=love', label: t('occ.love'), icon: 'heart' },
-    ...catLink('roses', 'blossom'),
-    ...catLink('bouquets', 'bouquet'),
-    ...catLink('gifts', 'gift'),
+    ...topLinks.map((l) => ({ ...l, own: true })),
     { to: '/catalog', label: t('nav.catalog'), icon: 'grid' },
     // "secondary" links leave the desktop row on narrow laptops (they stay in
     // the side menu and the footer) so the row never gets cut off.
@@ -231,7 +239,7 @@ export default function Header() {
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
   }
 
-  useSlidingIndicator(listRef, indicatorRef, [location.pathname, location.search, lang])
+  useSlidingIndicator(listRef, indicatorRef, [location.pathname, location.search, lang, topLinks], setMoved)
 
   return (
     <>
@@ -312,12 +320,26 @@ export default function Header() {
                 </div>
               </li>
               {menuLinks.map((l) => (
-                <li key={l.to} className={l.secondary ? 'mm-secondary' : undefined}>
+                <li key={l.to} className={l.secondary ? 'mm-secondary' : l.own ? 'mm-own' : undefined}>
                   <Link to={l.to} className={isActive(l.to) ? 'active' : ''} aria-current={isActive(l.to) ? 'page' : undefined}>
                     <MenuLabel icon={l.icon} label={l.label} />
                   </Link>
                 </li>
               ))}
+              {topLinks.length > 0 && (
+                <li className={`mm-more has-mega${moreOpen ? ' open' : ''}`} onMouseEnter={() => setMoreOpen(true)} onMouseLeave={() => setMoreOpen(false)}>
+                  <button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>
+                    <MenuLabel icon="list" label={t('menu.more')} /> <Icon name="chevron" size={14} className="caret" />
+                  </button>
+                  <div className="mega mm-more-list">
+                    {topLinks.slice(topLinks.length - moved).map((l) => (
+                      <Link key={l.to} to={l.to} onClick={() => setMoreOpen(false)}>
+                        <Icon name={l.icon} size={16} />{l.label}
+                      </Link>
+                    ))}
+                  </div>
+                </li>
+              )}
               <li className="mm-indicator" ref={indicatorRef} aria-hidden="true" />
             </ul>
           </div>

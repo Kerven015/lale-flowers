@@ -7,7 +7,6 @@ import Icon from './Icons'
 import ProductGrid from './ProductGrid'
 import { useDelivery } from '../contexts/DeliveryContext'
 import { useI18n } from '../contexts/I18nContext'
-import { occasionByKey } from '../data/navigation'
 import {
   COLOR_KEYS,
   EMPTY_FILTERS,
@@ -19,7 +18,7 @@ import {
   sortProducts,
 } from '../utils/catalogFilter'
 import { customTypes } from '../utils/productTypes'
-import { useProducts } from '../store/hooks'
+import { useOccasions, useProducts } from '../store/hooks'
 
 const rangeText = (lo, hi) => (lo && hi ? `${lo} – ${hi} TMT` : lo ? `${lo}+ TMT` : hi ? `≤ ${hi} TMT` : '')
 
@@ -108,12 +107,14 @@ export default function CatalogBrowser({
     setQuery('')
   }
 
-  const occasion = occasionByKey(filters.occasion)
+  const { occasionName } = useOccasions()
+  // the chosen occasion's name, or null (none / no longer exists)
+  const occasion = filters.occasion ? occasionName(filters.occasion) : null
   // Every category (admin → Categories), then any custom types typed with "Other".
   const catKeys = useMemo(() => [...categoryKeys, ...customTypes(products).map((c) => c.key)], [products, categoryKeys])
   const list = useMemo(
     () => sortProducts(
-      filterProducts(products, filters, query, { isSameDay, occasionIds: occasion ? occasion.ids : null }),
+      filterProducts(products, filters, query, { isSameDay, occasionIds: occasion ? [] : null }),
       sort,
     ),
     [products, filters, query, sort, isSameDay, occasion],
@@ -236,7 +237,7 @@ export default function CatalogBrowser({
     ...filters.colors.map((c) => ({ key: `col-${c}`, text: t(`color.${c}`), remove: () => toggleIn('colors', c) })),
     ...(filters.inStockOnly ? [{ key: 'stock', text: t('avail.in'), remove: () => update({ inStockOnly: false }) }] : []),
     ...(filters.minRating > 0 ? [{ key: 'rating', text: `${t('catalog.rating')} ${filters.minRating}+`, remove: () => update({ minRating: 0 }) }] : []),
-    ...(occasion ? [{ key: 'occ', text: `${t('listing.occasion')}: ${t(occasion.label)}`, remove: () => update({ occasion: '' }) }] : []),
+    ...(occasion ? [{ key: 'occ', text: `${t('listing.occasion')}: ${occasion}`, remove: () => update({ occasion: '' }) }] : []),
     ...(query.trim() ? [{ key: 'q', icon: 'search', text: `“${query.trim()}”`, remove: () => setQuery('') }] : []),
   ]
 

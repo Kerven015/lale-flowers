@@ -108,3 +108,19 @@
 @media (prefers-reduced-motion: reduce) {
   .mm-ico, .tb-btn .tb-ico, .acc-head .acc-ico { transition: none; }
 }
+
+/* The admin's links that do not fit move into "More" (fitMenu in Header.jsx).
+   "More" sits at the end of the row and only shows while something is in it. */
+.mainmenu-list > li.mm-own.mm-moved,
+.mainmenu-list > li.mm-more { display: none; }
+.mainmenu-list[data-more="1"] > li.mm-more { display: block; order: 1; }
+.mainmenu-list > li.mm-more .mm-more-list {
+  left: auto; right: 20px; transform: none; width: auto; min-width: 230px;
+  padding: 10px; display: none;
+}
+.mainmenu-list > li.mm-more.open .mm-more-list { display: grid; gap: 2px; }
+.mm-more-list a {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+  font-weight: 700; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; color: var(--text);
+}
+.mm-more-list a:hover { background: var(--bg-alt); color: var(--red); }

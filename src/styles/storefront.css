@@ -98,8 +98,9 @@ main { animation-fill-mode: backwards; }
   padding: 0;
   list-style: none;
   white-space: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  /* no scrolling here: it would also cut off the "Flowers" and "More"
+     drop-downs. The row is made to fit instead (fitMenu in Header.jsx). */
+  overflow: visible;
 }
 .mainmenu-list::-webkit-scrollbar { display: none; }
 .mainmenu-list > li > a,

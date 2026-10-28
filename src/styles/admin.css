@@ -403,3 +403,14 @@
 .adm-secret { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1rem; letter-spacing: .06em; overflow-wrap: anywhere; user-select: all; }
 .adm-backup-codes { columns: 2; column-gap: 32px; margin: 12px 0; padding-left: 1.6em; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.05rem; line-height: 1.9; }
 .adm-code-input { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .15em; }
+
+/* ---- admin → Menu: the top menu bar ---- */
+.menu-edit { list-style: none; margin: 12px 0 18px; padding: 0; display: grid; gap: 8px; }
+.menu-edit li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.menu-edit li > span:first-child { font-weight: 700; }
+.menu-edit li.is-fixed { opacity: .6; border-style: dashed; }
+.menu-edit-actions { display: flex; gap: 6px; margin-left: auto; }
+.menu-add label { display: block; font-weight: 700; margin-bottom: 6px; }
+.menu-add-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.menu-add-row .field { flex: 1 1 220px; min-width: 0; }
+.adm-section-title { font-size: 1.25rem; margin: 8px 0 14px; }

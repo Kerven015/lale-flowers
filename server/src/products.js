@@ -5,8 +5,6 @@ import { LANGS } from './config.js'
 // The flower types the shop came with (now rows in the categories table,
 // see categories.js); kept for the menu tags and colours
 export const TYPES = ['roses', 'tulips', 'bouquets', 'gifts', 'plants', 'other']
-// Menu sections a product can be shown under (src/utils/productTypes.js)
-export const TAGS = ['birthday', 'love', 'roses', 'bouquets', 'gifts', 'wedding', 'congrats', 'thanks', 'home', 'tulips', 'plants']
 // Colour filter in the catalog (src/utils/catalogFilter.js COLOR_KEYS)
 export const COLORS = ['red', 'white', 'pink', 'yellow', 'purple', 'mixed']
 export const MAX_STOCK = 100_000
@@ -102,8 +100,9 @@ export function slugify(s) {
 // Checks the admin product form. Photos are checked separately (uploads.js).
 // Returns { data } or { errors }.
 // categories = slugs of the categories that exist now (categories.js);
-// 'other' is always allowed.
-export function checkProductForm(body, categories) {
+// 'other' is always allowed. tags = what a flower can be "shown under":
+// occasions and categories (occasions.js tagKeys).
+export function checkProductForm(body, categories, tags) {
   const errors = {}
   const name = clean(body.name, 120)
   if (!name) errors.name = 'name'
@@ -111,7 +110,7 @@ export function checkProductForm(body, categories) {
   if (!type) errors.type = 'type'
   const customType = clean(body.customType, 40).replace(/\s+/g, ' ')
   if (type === 'other' && !customType) errors.customType = 'customType'
-  const occasions = Array.isArray(body.occasions) ? TAGS.filter((k) => body.occasions.includes(k)) : []
+  const occasions = Array.isArray(body.occasions) ? tags.filter((k) => body.occasions.includes(k)) : []
   if (!occasions.length) errors.occasions = 'occasions'
   const price = Number(body.price)
   if (!Number.isFinite(price) || price < 1 || price > 1_000_000) errors.price = 'price'
