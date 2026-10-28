@@ -7,6 +7,7 @@ import { useToast } from '../contexts/ToastContext'
 import Icon from '../components/Icons'
 import { api, errorMessage } from '../api'
 import { readJSON, writeJSON } from '../utils/storage'
+import { fill } from '../utils/productHelpers'
 import { TEXT } from './admin/texts'
 import { playChime, unlockSound } from './admin/sound'
 import AdminOrders from './admin/AdminOrders'
@@ -28,21 +29,25 @@ const TABS = [
   ['log', 'tabLog', 'list'],
 ]
 
-function LoginForm({ L, onDone }) {
+export function LoginForm({ L, onDone }) {
   const { t } = useI18n()
+  const { toast } = useToast()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // two-step login: the password was right, now the code from the phone
+  const [ticket, setTicket] = useState(null)
 
   async function onSubmit(e) {
     e.preventDefault()
     if (busy) return
     unlockSound() // allows the new-order sound later
-    const f = e.target
+    const f = e.target.elements
     setBusy(true)
     setError('')
     try {
       const data = await api('/api/admin/login', { method: 'POST', body: { username: f.username.value.trim(), password: f.password.value } })
-      onDone(data.admin)
+      if (data.twoStep) setTicket(data.ticket)
+      else onDone(data.admin)
     } catch (err) {
       setError(err.code === 'invalid_credentials' ? L.badLogin : errorMessage(t, err))
       f.password.value = ''
@@ -50,6 +55,46 @@ function LoginForm({ L, onDone }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function onCode(e) {
+    e.preventDefault()
+    if (busy) return
+    const f = e.target.elements
+    setBusy(true)
+    setError('')
+    try {
+      const data = await api('/api/admin/login/code', { method: 'POST', body: { ticket, code: f.code.value } })
+      if (data.backupCodesLeft !== undefined && data.backupCodesLeft <= 2) toast(fill(L.tsLowCodes, { n: data.backupCodesLeft }), 'error')
+      onDone(data.admin)
+    } catch (err) {
+      if (err.code === 'login_expired') { setTicket(null); setError(L.codeExpired); return }
+      setError(err.code === 'invalid_code' ? L.codeWrong : errorMessage(t, err))
+      f.code.value = ''
+      f.code.focus()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (ticket) {
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <h1 className="with-ico"><Icon name="lock" size={24} />{L.codeTitle}</h1>
+          <p className="auth-sub">{L.codeHint}</p>
+          <form onSubmit={onCode} noValidate>
+            <div className="form-field">
+              <label htmlFor="adm-code">{L.tsCodeOrBackup}</label>
+              <input id="adm-code" className="field adm-code-input" name="code" inputMode="text" autoComplete="one-time-code" maxLength={20} required autoFocus />
+            </div>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy}>{busy ? L.loginBusy : L.codeBtn}</button>
+            <button className="btn btn-outline btn-block" type="button" style={{ marginTop: 10 }} onClick={() => { setTicket(null); setError('') }}>{L.codeBack}</button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   return (
